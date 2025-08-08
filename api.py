@@ -232,29 +232,79 @@ class ClipboardAPI:
             'message': '获取成功'
         }, ensure_ascii=False)
     
-    def get_image(self, filename: str) -> bytes:
+    def get_image_data(self, filename: str) -> str:
         """
-        获取图片文件内容
+        获取图片文件的Base64编码数据
         
         Args:
             filename: 图片文件名
             
         Returns:
-            bytes: 图片文件的二进制内容，如果文件不存在返回None
+            str: JSON格式的结果，包含图片的Base64数据
         """
         try:
             import os
+            import base64
+            import datetime
+            
+            # 记录调试信息
+            timestamp = datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
+            print(f"[{timestamp}] 后端调试: 请求获取图片数据 - 文件名: {filename}")
+            
             # 构建图片文件的完整路径
             image_path = os.path.join(self.clipboard_manager.images_dir, filename)
+            print(f"[{timestamp}] 后端调试: 图片目录: {self.clipboard_manager.images_dir}")
+            print(f"[{timestamp}] 后端调试: 完整路径: {image_path}")
             
             # 检查文件是否存在
-            if os.path.exists(image_path):
+            file_exists = os.path.exists(image_path)
+            print(f"[{timestamp}] 后端调试: 文件是否存在: {file_exists}")
+            
+            if file_exists:
+                # 读取图片文件并转换为Base64
                 with open(image_path, 'rb') as f:
-                    return f.read()
+                    image_data = f.read()
+                    file_size = len(image_data)
+                    print(f"[{timestamp}] 后端调试: 读取文件大小: {file_size} 字节")
+                    
+                    # 转换为Base64编码
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    print(f"[{timestamp}] 后端调试: Base64编码完成，长度: {len(base64_data)} 字符")
+                    
+                    # 生成data URL格式
+                    data_url = f"data:image/png;base64,{base64_data}"
+                    print(f"[{timestamp}] 后端调试: 生成data URL成功")
+                    
+                    return json.dumps({
+                        'success': True,
+                        'data_url': data_url,
+                        'message': '获取成功'
+                    }, ensure_ascii=False)
             else:
-                return None
+                # 列出图片目录中的所有文件，帮助调试
+                try:
+                    if os.path.exists(self.clipboard_manager.images_dir):
+                        files_in_dir = os.listdir(self.clipboard_manager.images_dir)
+                        print(f"[{timestamp}] 后端调试: 图片目录中的文件: {files_in_dir}")
+                    else:
+                        print(f"[{timestamp}] 后端调试: 图片目录不存在")
+                except Exception as list_error:
+                    print(f"[{timestamp}] 后端调试: 列出目录文件失败: {list_error}")
+                
+                return json.dumps({
+                    'success': False,
+                    'data_url': '',
+                    'message': '图片文件不存在'
+                }, ensure_ascii=False)
         except Exception as e:
-            return None
+            import datetime
+            timestamp = datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
+            print(f"[{timestamp}] 后端调试: 获取图片数据异常: {str(e)}")
+            return json.dumps({
+                'success': False,
+                'data_url': '',
+                'message': f'获取失败: {str(e)}'
+            }, ensure_ascii=False)
     
     def hide_window(self) -> str:
         """
@@ -276,8 +326,29 @@ class ClipboardAPI:
                 'success': False,
                 'message': f'隐藏窗口失败: {str(e)}'
             }, ensure_ascii=False)
+    
+    def log_debug(self, message: str) -> str:
+        """
+        记录调试信息到控制台
+        
+        Args:
+            message: 调试信息
+            
+        Returns:
+            str: JSON格式的操作结果
+        """
+        try:
+            # 输出调试信息到控制台，带时间戳
+            import datetime
+            timestamp = datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
+            print(f"[{timestamp}] 前端调试: {message}")
+            
+            return json.dumps({
+                'success': True,
+                'message': '调试信息已记录'
+            }, ensure_ascii=False)
         except Exception as e:
             return json.dumps({
                 'success': False,
-                'message': f'隐藏窗口失败: {str(e)}'
+                'message': f'记录调试信息失败: {str(e)}'
             }, ensure_ascii=False)

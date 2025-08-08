@@ -378,6 +378,50 @@ body {
     object-fit: cover;
 }
 
+/* 图片加载状态样式 */
+.image-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 80px;
+    background: rgba(103, 126, 234, 0.05);
+    border: 1px dashed rgba(103, 126, 234, 0.3);
+    border-radius: 4px;
+    color: #999;
+    font-size: 12px;
+    margin-bottom: 4px;
+    position: relative;
+}
+
+.image-loading::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(103, 126, 234, 0.3);
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 6px;
+}
+
+/* 错误状态样式 */
+.image-loading.error-state {
+    color: #999;
+    border-color: rgba(255, 0, 0, 0.2);
+    background: rgba(255, 0, 0, 0.02);
+}
+
+/* 错误状态下不显示旋转动画 */
+.image-loading.error-state::before {
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* 空状态 */
 .empty-state {
     display: flex;

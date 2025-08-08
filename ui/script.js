@@ -165,6 +165,9 @@ class ModernClipboardUI {
         
         // 绑定项目事件
         this.bindItemEvents();
+        
+        // 异步加载图片
+        this.loadImages();
     }
     
     /**
@@ -178,9 +181,9 @@ class ModernClipboardUI {
         // 根据内容类型设置不同的图标和预览
         let preview;
         if (item.type === 'image') {
-            // 使用文件路径加载图片，通过本地文件协议
-            const imagePath = `images/${item.content}`;
-            preview = `<img src="${imagePath}" alt="图片" class="item-image" onerror="this.style.display='none'; this.parentNode.innerHTML='[图片加载失败]'">`;
+            // 使用API接口获取图片路径
+            preview = `<img src="" alt="图片" class="item-image" data-filename="${item.content}" style="display:none;">
+                      <div class="image-loading">加载中...</div>`;
         } else {
             preview = this.escapeHtml(item.preview);
         }
@@ -241,6 +244,64 @@ class ModernClipboardUI {
                 });
             });
         });
+    }
+    
+    /**
+     * 异步加载图片
+     */
+    async loadImages() {
+        const imageElements = this.clipboardList.querySelectorAll('.item-image[data-filename]');
+        
+        for (const img of imageElements) {
+            const filename = img.dataset.filename;
+            const loadingDiv = img.nextElementSibling;
+            
+            try {
+                // 调用API获取图片Base64数据
+                const response = await pywebview.api.get_image_data(filename);
+                const result = JSON.parse(response);
+                
+                if (result.success && result.data_url) {
+                    // 使用Base64数据URL显示图片
+                    img.src = result.data_url;
+                    img.style.display = 'block';
+                    
+                    // 添加图片加载事件监听
+                    img.onload = function() {
+                        // 图片加载成功，通知后端记录调试信息
+                        pywebview.api.log_debug(`图片加载成功: ${filename}`);
+                    };
+                    
+                    img.onerror = function() {
+                        // 图片加载失败，通知后端记录调试信息
+                        pywebview.api.log_debug(`图片加载失败: ${filename}, 使用Base64数据`);
+                        if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
+                            loadingDiv.textContent = '[图片数据无法显示]';
+                            loadingDiv.classList.add('error-state');
+                        }
+                    };
+                    
+                    // 隐藏加载提示
+                    if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
+                        loadingDiv.style.display = 'none';
+                    }
+                } else {
+                    // 图片文件不存在，显示错误信息
+                    pywebview.api.log_debug(`图片数据获取失败: ${filename}, 错误: ${result.message}`);
+                    if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
+                        loadingDiv.textContent = result.message || '[图片文件不存在]';
+                        loadingDiv.classList.add('error-state');
+                    }
+                }
+            } catch (error) {
+                // 显示错误信息
+                pywebview.api.log_debug(`图片加载异常: ${filename}, 错误: ${error.message}`);
+                if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
+                    loadingDiv.textContent = '[图片加载失败]';
+                    loadingDiv.classList.add('error-state');
+                }
+            }
+        }
     }
     
     /**
