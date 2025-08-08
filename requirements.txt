@@ -1,0 +1,29 @@
+# 现代剪贴板工具 - Python依赖包
+# 安装命令: pip install -r requirements.txt
+
+# Web界面框架
+pywebview>=4.0.0
+
+# Windows剪贴板操作
+pywin32>=306
+
+# 图像处理
+Pillow>=9.0.0
+
+# JSON处理（Python内置，无需安装）
+# json
+
+# 日期时间处理（Python内置，无需安装）
+# datetime
+
+# 线程处理（Python内置，无需安装）
+# threading
+
+# 文件操作（Python内置，无需安装）
+# os
+
+# 哈希计算（Python内置，无需安装）
+# hashlib
+
+# 类型提示（Python内置，无需安装）
+# typing

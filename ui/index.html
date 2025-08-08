@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>现代剪贴板工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="app-container">
+        <!-- 头部区域 -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="app-title">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>现代剪贴板</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-icon" id="searchBtn" title="搜索">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="btn btn-icon" id="clearBtn" title="清空所有">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-icon" id="settingsBtn" title="设置">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 搜索框 -->
+            <div class="search-container" id="searchContainer">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="搜索剪贴板内容..." class="search-input">
+                    <button class="btn btn-icon search-close" id="searchClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- 主内容区域 -->
+        <main class="app-main">
+            <!-- 状态栏 -->
+            <div class="status-bar">
+                <span class="item-count" id="itemCount">0 个项目</span>
+                <span class="last-update" id="lastUpdate">刚刚更新</span>
+            </div>
+            
+            <!-- 剪贴板项目列表 -->
+            <div class="clipboard-list" id="clipboardList">
+                <!-- 空状态 -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">
+                        <i class="fas fa-clipboard"></i>
+                    </div>
+                    <h3>剪贴板为空</h3>
+                    <p>复制一些内容开始使用吧</p>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 底部区域 -->
+        <footer class="app-footer">
+            <div class="footer-info">
+                <span>现代剪贴板工具 v1.0.0</span>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- 右键菜单 -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" data-action="copy">
+            <i class="fas fa-copy"></i>
+            <span>复制</span>
+        </div>
+        <div class="context-menu-item" data-action="delete">
+            <i class="fas fa-trash"></i>
+            <span>删除</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="copyText">
+            <i class="fas fa-font"></i>
+            <span>仅复制文本</span>
+        </div>
+    </div>
+    
+    <!-- 确认对话框 -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">确认操作</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage">确定要执行此操作吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modalCancel">取消</button>
+                <button class="btn btn-primary" id="modalConfirm">确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知提示 -->
+    <div class="notification" id="notification">
+        <div class="notification-content">
+            <i class="notification-icon"></i>
+            <span class="notification-message"></span>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
