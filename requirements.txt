@@ -1,4 +1,4 @@
-# 现代剪贴板工具 - Python依赖包
+# Copee - Python依赖包
 # 安装命令: pip install -r requirements.txt
 
 # Web界面框架

@@ -1,5 +1,5 @@
 /**
- * 现代剪贴板工具 - 前端脚本
+ * Copee - 前端脚本
  * 处理用户交互和API通信
  */
 
@@ -178,7 +178,9 @@ class ModernClipboardUI {
         // 根据内容类型设置不同的图标和预览
         let preview;
         if (item.type === 'image') {
-            preview = `<img src="data:image/png;base64,${item.content}" alt="图片" class="item-image">`;
+            // 使用文件路径加载图片，通过本地文件协议
+            const imagePath = `images/${item.content}`;
+            preview = `<img src="${imagePath}" alt="图片" class="item-image" onerror="this.style.display='none'; this.parentNode.innerHTML='[图片加载失败]'">`;
         } else {
             preview = this.escapeHtml(item.preview);
         }

@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional
 from PIL import Image
 import io
 import base64
+import uuid
 
 class ClipboardItem:
     """
@@ -93,9 +94,15 @@ class ClipboardManager:
         self.items: List[ClipboardItem] = []
         self.last_clipboard_hash = ""
         self.data_file = "clipboard_data.json"
+        self.images_dir = 'images'  # 图片存储目录
+        
+        # 创建图片存储目录
+        if not os.path.exists(self.images_dir):
+            os.makedirs(self.images_dir)
         
         # 加载历史数据
         self._load_data()
+        self._cleanup_orphaned_images()  # 清理孤立的图片文件
         
     def _load_data(self):
         """
@@ -150,13 +157,60 @@ class ClipboardManager:
                     
             # 检查是否有图片内容
             elif win32clipboard.IsClipboardFormatAvailable(win32con.CF_DIB):
-                # 处理图片内容
-                self._handle_image_clipboard()
-                win32clipboard.CloseClipboard()
-                return True
+                # 获取图片数据并生成哈希
+                try:
+                    dib_data = win32clipboard.GetClipboardData(win32con.CF_DIB)
+                    image_hash = hashlib.md5(dib_data).hexdigest()
+                    
+                    # 检查是否与上次的图片相同
+                    if image_hash != self.last_clipboard_hash:
+                        self.last_clipboard_hash = image_hash
+                        self._handle_image_clipboard()
+                        win32clipboard.CloseClipboard()
+                        return True
+                except:
+                    # 如果获取图片数据失败，仍然处理图片内容
+                    self._handle_image_clipboard()
+                    win32clipboard.CloseClipboard()
+                    return True
                 
             win32clipboard.CloseClipboard()
             return False
+    
+        except Exception as e:
+            try:
+                win32clipboard.CloseClipboard()
+            except:
+                pass
+            pass  # 静默处理剪贴板检查错误
+            return False
+    
+    def _cleanup_orphaned_images(self):
+        """
+        清理孤立的图片文件（不在items列表中引用的图片文件）
+        """
+        try:
+            if not os.path.exists(self.images_dir):
+                return
+            
+            # 获取所有当前引用的图片文件名
+            referenced_images = set()
+            for item in self.items:
+                if item.item_type == 'image':
+                    referenced_images.add(item.content)
+            
+            # 遍历images目录中的所有文件
+            for filename in os.listdir(self.images_dir):
+                if filename.endswith('.png') and filename not in referenced_images:
+                    # 删除未被引用的图片文件
+                    orphaned_path = os.path.join(self.images_dir, filename)
+                    try:
+                        os.remove(orphaned_path)
+                    except:
+                        pass  # 静默处理文件删除错误
+                        
+        except Exception as e:
+            pass  # 静默处理清理错误
             
         except Exception as e:
             try:
@@ -219,16 +273,65 @@ class ClipboardManager:
         
     def _handle_image_clipboard(self):
         """
-        处理图片剪贴板内容
+        处理图片剪贴板内容 - 优化版本，将图片保存为单独文件
         """
         try:
-            # 这里可以扩展图片处理逻辑
-            # 暂时添加一个占位符
-            new_item = ClipboardItem('[图片内容]', 'image')
+            # 获取剪贴板中的图片数据
+            dib_data = win32clipboard.GetClipboardData(win32con.CF_DIB)
+            
+            # 将DIB数据转换为PIL Image对象
+            # DIB格式需要添加文件头才能被PIL识别
+            img_size = len(dib_data)
+            # 创建BMP文件头
+            bmp_header = b'BM' + (img_size + 14).to_bytes(4, 'little') + b'\x00\x00\x00\x00' + b'\x36\x00\x00\x00'
+            bmp_data = bmp_header + dib_data
+            
+            # 使用PIL打开图片
+            image = Image.open(io.BytesIO(bmp_data))
+            
+            # 生成图片的哈希值用于去重检查
+            img_buffer = io.BytesIO()
+            image.save(img_buffer, format='PNG')
+            img_data = img_buffer.getvalue()
+            img_hash = hashlib.md5(img_data).hexdigest()
+            
+            # 检查是否已存在相同的图片项目（去重）
+            for i, existing_item in enumerate(self.items):
+                if existing_item.item_type == 'image' and existing_item.hash == img_hash:
+                    # 如果找到相同项目，将其移到最前面
+                    self.items.pop(i)
+                    self.items.insert(0, existing_item)
+                    self._save_data()
+                    return
+            
+            # 生成唯一的文件名
+            image_filename = f"{uuid.uuid4().hex}.png"
+            image_path = os.path.join(self.images_dir, image_filename)
+            
+            # 保存图片到文件
+            with open(image_path, 'wb') as f:
+                f.write(img_data)
+            
+            # 创建图片项目，content存储文件路径
+            new_item = ClipboardItem(image_filename, 'image')
+            # 手动设置哈希值，因为我们已经计算过了
+            new_item.hash = img_hash
+            
+            # 添加新项目到列表最前面
             self.items.insert(0, new_item)
             
-            # 限制最大数量
+            # 限制最大数量，删除多余项目时也要删除对应的图片文件
             if len(self.items) > self.max_items:
+                # 删除多余项目对应的图片文件
+                for item_to_remove in self.items[self.max_items:]:
+                    if item_to_remove.item_type == 'image':
+                        old_image_path = os.path.join(self.images_dir, item_to_remove.content)
+                        if os.path.exists(old_image_path):
+                            try:
+                                os.remove(old_image_path)
+                            except:
+                                pass  # 静默处理文件删除错误
+                
                 self.items = self.items[:self.max_items]
                 
             self._save_data()
@@ -291,6 +394,38 @@ class ClipboardManager:
                     # 设置文本内容到剪贴板
                     win32clipboard.SetClipboardText(text_content)
                     
+                elif item.item_type == 'image':
+                    # 处理图片内容 - 从文件读取
+                    try:
+                        # 构建图片文件路径
+                        image_path = os.path.join(self.images_dir, item.content)
+                        
+                        # 检查文件是否存在
+                        if not os.path.exists(image_path):
+                            win32clipboard.CloseClipboard()
+                            return False
+                        
+                        # 从文件读取图片
+                        image = Image.open(image_path)
+                        
+                        # 将图片转换为DIB格式
+                        img_buffer = io.BytesIO()
+                        image.save(img_buffer, format='BMP')
+                        img_buffer.seek(0)
+                        
+                        # 读取BMP数据并跳过文件头（14字节）
+                        bmp_data = img_buffer.read()
+                        dib_data = bmp_data[14:]  # 跳过BMP文件头，只保留DIB数据
+                        
+                        # 设置图片到剪贴板
+                        win32clipboard.SetClipboardData(win32con.CF_DIB, dib_data)
+                        
+                    except Exception as img_error:
+                        pass  # 静默处理图片复制错误
+                        # 如果图片处理失败，关闭剪贴板并返回失败
+                        win32clipboard.CloseClipboard()
+                        return False
+                    
                 win32clipboard.CloseClipboard()
                 
                 # 移动到最前面
@@ -321,6 +456,17 @@ class ClipboardManager:
         """
         try:
             if 0 <= index < len(self.items):
+                item_to_delete = self.items[index]
+                
+                # 如果是图片项目，删除对应的图片文件
+                if item_to_delete.item_type == 'image':
+                    image_path = os.path.join(self.images_dir, item_to_delete.content)
+                    if os.path.exists(image_path):
+                        try:
+                            os.remove(image_path)
+                        except:
+                            pass  # 静默处理文件删除错误
+                
                 self.items.pop(index)
                 self._save_data()
                 return True
@@ -337,6 +483,16 @@ class ClipboardManager:
             bool: 是否成功
         """
         try:
+            # 删除所有图片文件
+            for item in self.items:
+                if item.item_type == 'image':
+                    image_path = os.path.join(self.images_dir, item.content)
+                    if os.path.exists(image_path):
+                        try:
+                            os.remove(image_path)
+                        except:
+                            pass  # 静默处理文件删除错误
+            
             self.items.clear()
             self._save_data()
             return True

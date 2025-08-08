@@ -224,13 +224,37 @@ class ClipboardAPI:
         return json.dumps({
             'success': True,
             'data': {
-                'name': '现代剪贴板工具',
+                'name': 'Copee',
                 'version': '1.0.0',
                 'description': '替代Windows Win+V的现代化剪贴板管理器',
                 'author': 'MTpupil'
             },
             'message': '获取成功'
         }, ensure_ascii=False)
+    
+    def get_image(self, filename: str) -> bytes:
+        """
+        获取图片文件内容
+        
+        Args:
+            filename: 图片文件名
+            
+        Returns:
+            bytes: 图片文件的二进制内容，如果文件不存在返回None
+        """
+        try:
+            import os
+            # 构建图片文件的完整路径
+            image_path = os.path.join(self.clipboard_manager.images_dir, filename)
+            
+            # 检查文件是否存在
+            if os.path.exists(image_path):
+                with open(image_path, 'rb') as f:
+                    return f.read()
+            else:
+                return None
+        except Exception as e:
+            return None
     
     def hide_window(self) -> str:
         """
@@ -242,13 +266,15 @@ class ClipboardAPI:
         try:
             if self.hide_window_callback:
                 self.hide_window_callback()
-                return json.dumps({
-                    'success': True,
-                    'message': '窗口已隐藏'
-                }, ensure_ascii=False)
+            
+            return json.dumps({
+                'success': True,
+                'message': '窗口已隐藏'
+            }, ensure_ascii=False)
+        except Exception as e:
             return json.dumps({
                 'success': False,
-                'message': '隐藏窗口回调函数不存在'
+                'message': f'隐藏窗口失败: {str(e)}'
             }, ensure_ascii=False)
         except Exception as e:
             return json.dumps({

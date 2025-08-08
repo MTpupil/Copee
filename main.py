@@ -78,9 +78,9 @@ class ModernClipboardApp:
         
         # 创建托盘图标
         self.tray_icon = pystray.Icon(
-            "现代剪贴板",
+            "Copee",
             create_icon_image(),
-            "现代剪贴板工具\n使用 Win+V 调用",
+            "win+V 调用",
             menu
         )
         
@@ -110,8 +110,8 @@ class ModernClipboardApp:
                 root.focus_force()
                 
                 messagebox.showinfo(
-                    "关于现代剪贴板工具",
-                    "现代剪贴板工具 v1.0.0\n\n"
+                    "关于Copee",
+                    "Copee v1.0.0\n\n"
                     "一个现代化的剪贴板管理器\n"
                     "替代Windows Win+V功能\n\n"
                     "使用方法：\n"
@@ -236,7 +236,7 @@ class ModernClipboardApp:
         
         # 注册我们自己的Win+V快捷键
         try:
-            keyboard.add_hotkey('win+v', show_clipboard_window, suppress=True)
+            keyboard.add_hotkey('windows+v', show_clipboard_window, suppress=True)
             # 全局快捷键 Win+V 已注册
         except Exception as e:
             pass  # 静默处理快捷键注册错误
@@ -517,13 +517,16 @@ class ModernClipboardApp:
             # 设置全局快捷键
             self.setup_global_hotkey()
             
-            # 现代剪贴板工具已启动
+            # Copee已启动
             # 托盘图标已显示，使用 Win+V 调用剪贴板窗口
             # 右键托盘图标可以退出程序
             
             # 在单独线程中启动托盘图标
             tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
             tray_thread.start()
+            
+            # 等待所有组件初始化完成
+            time.sleep(0.5)
             
             # 启动webview（隐藏状态）
             webview.start(debug=False)  # 生产环境设为False
