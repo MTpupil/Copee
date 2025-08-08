@@ -113,7 +113,7 @@ class ClipboardManager:
                         )
                         self.items.append(item)
         except Exception as e:
-            print(f"加载历史数据失败: {e}")
+            pass  # 静默处理历史数据加载错误
             
     def _save_data(self):
         """
@@ -124,7 +124,7 @@ class ClipboardManager:
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"保存数据失败: {e}")
+            pass  # 静默处理数据保存错误
             
     def check_clipboard_change(self) -> bool:
         """
@@ -163,7 +163,7 @@ class ClipboardManager:
                 win32clipboard.CloseClipboard()
             except:
                 pass
-            print(f"检查剪贴板失败: {e}")
+            pass  # 静默处理剪贴板检查错误
             return False
             
     def _add_text_item(self, content: str):
@@ -173,6 +173,28 @@ class ClipboardManager:
         Args:
             content: 文本内容
         """
+        # 预处理文本内容，清理可能有问题的字符
+        try:
+            # 确保文本是有效的Unicode字符串
+            if isinstance(content, bytes):
+                content = content.decode('utf-8', errors='replace')
+            
+            # 清理可能导致编码问题的字符
+            # 替换一些特殊的Unicode字符为标准字符
+            content = content.replace('\u2028', '\n')  # 行分隔符
+            content = content.replace('\u2029', '\n\n')  # 段落分隔符
+            content = content.replace('\u00a0', ' ')  # 不间断空格
+            
+            # 移除或替换其他可能有问题的控制字符
+            import re
+            # 保留常见的控制字符（换行、制表符等），移除其他控制字符
+            content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)
+            
+        except Exception as e:
+            pass  # 静默处理文本预处理错误
+            # 如果处理失败，确保至少是字符串类型
+            content = str(content)
+        
         # 创建新项目
         new_item = ClipboardItem(content, 'text')
         
@@ -211,7 +233,7 @@ class ClipboardManager:
                 
             self._save_data()
         except Exception as e:
-            print(f"处理图片剪贴板失败: {e}")
+            pass  # 静默处理图片剪贴板错误
             
     def get_items(self) -> List[Dict[str, Any]]:
         """
@@ -241,8 +263,33 @@ class ClipboardManager:
                 win32clipboard.EmptyClipboard()
                 
                 if item.item_type == 'text':
-                    # 设置文本内容
-                    win32clipboard.SetClipboardText(item.content)
+                    # 处理文本内容，确保编码正确
+                    text_content = item.content
+                    
+                    # 处理可能的编码问题
+                    try:
+                        # 确保文本是有效的Unicode字符串
+                        if isinstance(text_content, bytes):
+                            text_content = text_content.decode('utf-8', errors='replace')
+                        
+                        # 清理可能导致编码问题的字符
+                        # 替换一些特殊的Unicode字符为标准字符
+                        text_content = text_content.replace('\u2028', '\n')  # 行分隔符
+                        text_content = text_content.replace('\u2029', '\n\n')  # 段落分隔符
+                        text_content = text_content.replace('\u00a0', ' ')  # 不间断空格
+                        
+                        # 移除或替换其他可能有问题的控制字符
+                        import re
+                        # 保留常见的控制字符（换行、制表符等），移除其他控制字符
+                        text_content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text_content)
+                        
+                    except Exception as encoding_error:
+                        pass  # 静默处理文本编码错误
+                        # 如果处理失败，尝试使用原始内容
+                        text_content = str(item.content)
+                    
+                    # 设置文本内容到剪贴板
+                    win32clipboard.SetClipboardText(text_content)
                     
                 win32clipboard.CloseClipboard()
                 
@@ -258,7 +305,7 @@ class ClipboardManager:
                 win32clipboard.CloseClipboard()
             except:
                 pass
-            print(f"复制到剪贴板失败: {e}")
+            pass  # 静默处理剪贴板复制错误
             
         return False
         
@@ -278,7 +325,7 @@ class ClipboardManager:
                 self._save_data()
                 return True
         except Exception as e:
-            print(f"删除项目失败: {e}")
+            pass  # 静默处理项目删除错误
             
         return False
         
@@ -294,5 +341,5 @@ class ClipboardManager:
             self._save_data()
             return True
         except Exception as e:
-            print(f"清空失败: {e}")
+            pass  # 静默处理清空错误
             return False
