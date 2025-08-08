@@ -10,65 +10,46 @@
 <body>
     <!-- 主容器 -->
     <div class="app-container">
-        <!-- 头部区域 -->
-        <header class="app-header">
-            <div class="header-content">
-                <div class="app-title">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>现代剪贴板</span>
-                </div>
-                <div class="header-actions">
-                    <button class="btn btn-icon" id="searchBtn" title="搜索">
-                        <i class="fas fa-search"></i>
-                    </button>
-                    <button class="btn btn-icon" id="clearBtn" title="清空所有">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button class="btn btn-icon" id="settingsBtn" title="设置">
-                        <i class="fas fa-cog"></i>
-                    </button>
-                </div>
+        <!-- 简化的头部 -->
+        <div class="simple-header">
+            <div class="header-title">
+                <i class="fas fa-clipboard-list"></i>
+                <span>剪贴板</span>
             </div>
-            
-            <!-- 搜索框 -->
-            <div class="search-container" id="searchContainer">
-                <div class="search-input-wrapper">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" id="searchInput" placeholder="搜索剪贴板内容..." class="search-input">
-                    <button class="btn btn-icon search-close" id="searchClose">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+            <div class="header-actions">
+                <button class="btn btn-icon" id="searchBtn" title="搜索">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button class="btn btn-icon" id="clearBtn" title="清空">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
-        </header>
+        </div>
         
-        <!-- 主内容区域 -->
-        <main class="app-main">
-            <!-- 状态栏 -->
-            <div class="status-bar">
-                <span class="item-count" id="itemCount">0 个项目</span>
-                <span class="last-update" id="lastUpdate">刚刚更新</span>
+        <!-- 搜索框 -->
+        <div class="search-container" id="searchContainer">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" placeholder="搜索剪贴板内容..." class="search-input">
+                <button class="btn btn-icon search-close" id="searchClose">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            
-            <!-- 剪贴板项目列表 -->
-            <div class="clipboard-list" id="clipboardList">
-                <!-- 空状态 -->
-                <div class="empty-state" id="emptyState">
-                    <div class="empty-icon">
-                        <i class="fas fa-clipboard"></i>
-                    </div>
+        </div>
+        
+        <!-- 剪贴板项目列表 -->
+        <div class="clipboard-list" id="clipboardList">
+            <!-- 空状态 -->
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">
+                    <i class="fas fa-clipboard"></i>
+                </div>
+                <div class="empty-text">
                     <h3>剪贴板为空</h3>
-                    <p>复制一些内容开始使用吧</p>
+                    <p>复制内容后会显示在这里</p>
                 </div>
             </div>
-        </main>
-        
-        <!-- 底部区域 -->
-        <footer class="app-footer">
-            <div class="footer-info">
-                <span>现代剪贴板工具 v1.0.0</span>
-            </div>
-        </footer>
+        </div>
     </div>
     
     <!-- 右键菜单 -->

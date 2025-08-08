@@ -6,6 +6,9 @@ API接口模块
 """
 
 import json
+import time
+import win32api
+import win32con
 from typing import List, Dict, Any
 from clipboard_manager import ClipboardManager
 
@@ -15,14 +18,16 @@ class ClipboardAPI:
     提供给前端调用的方法
     """
     
-    def __init__(self, clipboard_manager: ClipboardManager):
+    def __init__(self, clipboard_manager: ClipboardManager, hide_window_callback=None):
         """
         初始化API接口
         
         Args:
             clipboard_manager: 剪贴板管理器实例
+            hide_window_callback: 隐藏窗口的回调函数
         """
         self.clipboard_manager = clipboard_manager
+        self.hide_window_callback = hide_window_callback
         
     def get_clipboard_items(self) -> str:
         """
@@ -47,7 +52,7 @@ class ClipboardAPI:
             
     def copy_item(self, index: int) -> str:
         """
-        复制指定项目到剪贴板
+        复制指定项目到剪贴板并自动粘贴到输入框
         
         Args:
             index: 项目索引
@@ -56,16 +61,65 @@ class ClipboardAPI:
             str: JSON格式的操作结果
         """
         try:
+            # 复制内容到剪贴板
             success = self.clipboard_manager.copy_item_to_clipboard(index)
+            if not success:
+                return json.dumps({
+                    'success': False,
+                    'message': '复制失败'
+                }, ensure_ascii=False)
+            
+            # 隐藏窗口但不改变焦点
+            if self.hide_window_callback:
+                try:
+                    self.hide_window_callback()
+                    time.sleep(0.1)  # 短暂等待窗口隐藏
+                except Exception:
+                    pass
+            
+            # 执行自动粘贴
+            self._auto_paste()
+            
             return json.dumps({
-                'success': success,
-                'message': '复制成功' if success else '复制失败'
+                'success': True,
+                'message': '已自动粘贴'
             }, ensure_ascii=False)
+            
         except Exception as e:
             return json.dumps({
                 'success': False,
-                'message': f'复制失败: {str(e)}'
+                'message': f'操作失败: {str(e)}'
             }, ensure_ascii=False)
+    
+    def _auto_paste(self):
+        """
+        执行自动粘贴操作
+        使用简化的方法，直接发送Ctrl+V键盘事件
+        """
+        try:
+            # 短暂延迟确保剪贴板内容已更新
+            time.sleep(0.05)
+            
+            # 使用全局键盘事件发送Ctrl+V
+            # 清除可能的按键状态
+            win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)
+            win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)
+            time.sleep(0.02)
+            
+            # 执行Ctrl+V组合键
+            win32api.keybd_event(win32con.VK_CONTROL, 0, 0, 0)  # Ctrl按下
+            time.sleep(0.02)
+            win32api.keybd_event(ord('V'), 0, 0, 0)  # V按下
+            time.sleep(0.02)
+            win32api.keybd_event(ord('V'), 0, win32con.KEYEVENTF_KEYUP, 0)  # V释放
+            time.sleep(0.02)
+            win32api.keybd_event(win32con.VK_CONTROL, 0, win32con.KEYEVENTF_KEYUP, 0)  # Ctrl释放
+            
+        except Exception as e:
+            # 静默处理错误，不输出详细信息
+            pass
+    
+
             
     def delete_item(self, index: int) -> str:
         """
@@ -173,7 +227,31 @@ class ClipboardAPI:
                 'name': '现代剪贴板工具',
                 'version': '1.0.0',
                 'description': '替代Windows Win+V的现代化剪贴板管理器',
-                'author': 'Assistant'
+                'author': 'MTpupil'
             },
             'message': '获取成功'
         }, ensure_ascii=False)
+    
+    def hide_window(self) -> str:
+        """
+        隐藏窗口
+        
+        Returns:
+            str: JSON格式的操作结果
+        """
+        try:
+            if self.hide_window_callback:
+                self.hide_window_callback()
+                return json.dumps({
+                    'success': True,
+                    'message': '窗口已隐藏'
+                }, ensure_ascii=False)
+            return json.dumps({
+                'success': False,
+                'message': '隐藏窗口回调函数不存在'
+            }, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'message': f'隐藏窗口失败: {str(e)}'
+            }, ensure_ascii=False)

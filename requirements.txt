@@ -10,6 +10,15 @@ pywin32>=306
 # 图像处理
 Pillow>=9.0.0
 
+# 全局快捷键支持
+keyboard>=1.13.0
+
+# 鼠标事件监听
+pynput>=1.7.0
+
+# 系统托盘功能
+pystray>=0.19.4
+
 # JSON处理（Python内置，无需安装）
 # json
 

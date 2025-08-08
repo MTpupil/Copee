@@ -39,8 +39,6 @@ class ModernClipboardUI {
         // 主要内容
         this.clipboardList = document.getElementById('clipboardList');
         this.emptyState = document.getElementById('emptyState');
-        this.itemCount = document.getElementById('itemCount');
-        this.lastUpdate = document.getElementById('lastUpdate');
         
         // 右键菜单
         this.contextMenu = document.getElementById('contextMenu');
@@ -63,7 +61,6 @@ class ModernClipboardUI {
         // 头部按钮事件
         this.searchBtn.addEventListener('click', () => this.toggleSearch());
         this.clearBtn.addEventListener('click', () => this.showClearConfirm());
-        this.settingsBtn.addEventListener('click', () => this.showSettings());
         
         // 搜索事件
         this.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
@@ -91,6 +88,17 @@ class ModernClipboardUI {
         // 键盘事件
         document.addEventListener('keydown', (e) => this.handleKeydown(e));
         
+        // 窗口失去焦点时隐藏（模拟点击外部）
+        window.addEventListener('blur', () => {
+            setTimeout(async () => {
+                try {
+                    await pywebview.api.hide_window();
+                } catch (error) {
+                    console.error('隐藏窗口失败:', error);
+                }
+            }, 100);
+        });
+        
         // 阻止右键菜单的默认行为
         document.addEventListener('contextmenu', (e) => {
             if (e.target.closest('.clipboard-item')) {
@@ -105,10 +113,7 @@ class ModernClipboardUI {
     async init() {
         try {
             await this.loadClipboardItems();
-            this.updateLastUpdateTime();
-            
-            // 定期更新时间显示
-            setInterval(() => this.updateLastUpdateTime(), 60000);
+            // 移除状态栏更新调用
         } catch (error) {
             console.error('初始化失败:', error);
             this.showNotification('初始化失败', 'error');
@@ -127,7 +132,6 @@ class ModernClipboardUI {
                 this.clipboardItems = result.data;
                 this.filteredItems = [...this.clipboardItems];
                 this.renderClipboardList();
-                this.updateItemCount();
             } else {
                 throw new Error(result.message);
             }
@@ -171,25 +175,27 @@ class ModernClipboardUI {
         const timeAgo = this.getTimeAgo(new Date(item.timestamp));
         const isSelected = index === this.selectedIndex ? 'selected' : '';
         
+        // 根据内容类型设置不同的图标和预览
+        let preview;
+        if (item.type === 'image') {
+            preview = `<img src="data:image/png;base64,${item.content}" alt="图片" class="item-image">`;
+        } else {
+            preview = this.escapeHtml(item.preview);
+        }
+        
         return `
             <div class="clipboard-item ${isSelected}" data-index="${index}">
-                <div class="item-header">
-                    <div class="item-type">
+                <div class="item-content">
+                    <div class="item-icon">
                         <i class="${typeIcon}"></i>
-                        <span>${this.getTypeText(item.type)}</span>
                     </div>
-                    <div class="item-time">${timeAgo}</div>
-                </div>
-                <div class="item-content" title="${this.escapeHtml(item.content)}">
-                    ${this.escapeHtml(item.preview)}
-                </div>
-                <div class="item-actions">
-                    <button class="action-btn" data-action="copy" title="复制">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                    <button class="action-btn" data-action="delete" title="删除">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <div class="item-text">
+                        <div class="item-preview">${preview}</div>
+                        <div class="item-meta">
+                            <span class="item-type">${this.getTypeText(item.type)}</span>
+                            <span class="item-time">${timeAgo}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -258,7 +264,18 @@ class ModernClipboardUI {
             const result = JSON.parse(response);
             
             if (result.success) {
-                this.showNotification('已复制到剪贴板', 'success');
+                // 不再显示通知提示，直接隐藏窗口
+                console.log(result.message); // 仅在控制台输出信息
+                
+                // 复制成功后立即隐藏窗口
+                setTimeout(async () => {
+                    try {
+                        await pywebview.api.hide_window();
+                    } catch (error) {
+                        console.error('隐藏窗口失败:', error);
+                    }
+                }, 100); // 减少延迟时间
+                
                 // 重新加载列表以更新顺序
                 await this.loadClipboardItems();
             } else {
@@ -402,17 +419,29 @@ class ModernClipboardUI {
      * 处理键盘事件
      */
     handleKeydown(e) {
+        // 如果搜索框处于焦点状态，不处理导航键
+        if (document.activeElement === this.searchInput) {
+            if (e.key === 'Escape') {
+                this.closeSearch();
+                e.preventDefault();
+            }
+            return;
+        }
+        
         // Ctrl+F 打开搜索
         if (e.ctrlKey && e.key === 'f') {
             e.preventDefault();
             this.toggleSearch();
         }
-        // Escape 关闭搜索或模态框
+        // Escape 关闭搜索或模态框，或隐藏窗口
         else if (e.key === 'Escape') {
             if (this.isSearchMode) {
                 this.closeSearch();
             } else if (this.modalOverlay.classList.contains('active')) {
                 this.hideModal();
+            } else {
+                // Escape键隐藏窗口
+                this.hideWindow();
             }
         }
         // 上下箭头选择项目
@@ -556,12 +585,7 @@ class ModernClipboardUI {
         );
     }
     
-    /**
-     * 显示设置
-     */
-    showSettings() {
-        this.showNotification('设置功能开发中...', 'info');
-    }
+    // 移除设置功能
     
     /**
      * 显示模态框
@@ -630,25 +654,7 @@ class ModernClipboardUI {
         this.emptyState.style.display = 'none';
     }
     
-    /**
-     * 更新项目计数
-     */
-    updateItemCount() {
-        const count = this.clipboardItems.length;
-        this.itemCount.textContent = `${count} 个项目`;
-    }
-    
-    /**
-     * 更新最后更新时间
-     */
-    updateLastUpdateTime() {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        this.lastUpdate.textContent = `最后更新: ${timeString}`;
-    }
+    // 移除状态栏更新逻辑
     
     /**
      * 获取类型图标
@@ -703,6 +709,17 @@ class ModernClipboardUI {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    /**
+     * 隐藏窗口
+     */
+    async hideWindow() {
+        try {
+            await pywebview.api.hide_window();
+        } catch (error) {
+            console.error('隐藏窗口失败:', error);
+        }
     }
 }
 
