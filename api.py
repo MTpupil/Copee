@@ -333,8 +333,20 @@ class ClipboardAPI:
             # 过滤包含关键词的项目
             filtered_items = []
             for item in all_items:
-                if keyword.lower() in item['content'].lower():
-                    filtered_items.append(item)
+                # 根据项目类型进行不同的搜索策略
+                if item['type'] == 'text':
+                    # 文本项目：搜索实际内容
+                    if keyword.lower() in item['content'].lower():
+                        filtered_items.append(item)
+                elif item['type'] == 'image':
+                    # 图片项目：搜索预览文本（通常是"[图片]"），基本不会匹配到用户输入
+                    # 这样可以避免搜索到图片文件名
+                    if keyword.lower() in item['preview'].lower():
+                        filtered_items.append(item)
+                elif item['type'] == 'file':
+                    # 文件项目：搜索文件名
+                    if keyword.lower() in item['content'].lower():
+                        filtered_items.append(item)
                     
             return json.dumps({
                 'success': True,

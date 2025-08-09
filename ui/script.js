@@ -480,7 +480,7 @@ class ModernClipboardUI {
             const result = JSON.parse(response);
             
             if (result.success) {
-                this.showNotification(result.message, 'success');
+                // 去掉收藏成功/取消收藏的通知弹窗
                 await this.loadClipboardItems();
             } else {
                 throw new Error(result.message);
@@ -527,7 +527,7 @@ class ModernClipboardUI {
             const result = JSON.parse(response);
             
             if (result.success) {
-                this.showNotification(result.message || '项目已删除', 'success');
+                // 去掉删除成功的通知弹窗
                 await this.loadClipboardItems();
             } else {
                 throw new Error(result.message);
@@ -808,14 +808,22 @@ class ModernClipboardUI {
     }
     
     /**
-     * 显示删除确认
+     * 显示删除确认（仅收藏项目需要确认）
      */
     showDeleteConfirm(index) {
-        this.showModal(
-            '确认删除',
-            '确定要删除这个剪贴板项目吗？',
-            () => this.deleteItem(index)
-        );
+        // 检查是否为收藏项目
+        const item = this.clipboardItems[index];
+        if (item && item.favorite) {
+            // 收藏项目需要确认
+            this.showModal(
+                '确认删除',
+                '确定要删除这个收藏的剪贴板项目吗？',
+                () => this.deleteItem(index)
+            );
+        } else {
+            // 非收藏项目直接删除
+            this.deleteItem(index);
+        }
     }
     
     /**
