@@ -26,6 +26,12 @@ class ModernClipboardUI {
             }
         };
         
+        // 自动保存防抖定时器
+        this.autoSaveTimer = null;
+        
+        // 绑定方法到实例，确保事件监听器能正确移除
+        this.adjustModalSize = this.adjustModalSize.bind(this);
+        
         // 绑定DOM元素
         this.bindElements();
         
@@ -82,8 +88,6 @@ class ModernClipboardUI {
         // 设置页面
         this.settingsModal = document.getElementById('settingsModal');
         this.settingsClose = document.getElementById('settingsClose');
-        this.settingsCancel = document.getElementById('settingsCancel');
-        this.settingsSave = document.getElementById('settingsSave');
         
         // 设置选项
         this.autoDeleteEnabled = document.getElementById('autoDeleteEnabled');
@@ -123,19 +127,33 @@ class ModernClipboardUI {
         this.monthBtn.addEventListener('click', () => this.setTimeFilter('month'));
         
         // 设置页面事件
-        this.settingsClose.addEventListener('click', () => this.hideSettings());
-        this.settingsCancel.addEventListener('click', () => this.hideSettings());
-        this.settingsSave.addEventListener('click', () => this.saveSettings());
+        this.settingsClose.addEventListener('click', () => this.closeSettingsWithSave());
         this.settingsModal.addEventListener('click', (e) => {
             if (e.target === this.settingsModal) {
-                this.hideSettings();
+                this.closeSettingsWithSave();
             }
         });
         
-        // 自动删除选项事件
-        this.autoDeleteEnabled.addEventListener('change', () => this.toggleAutoDeleteOptions());
-        this.deleteByTime.addEventListener('change', () => this.toggleTimeDeleteGroup());
-        this.deleteByCount.addEventListener('change', () => this.toggleCountDeleteGroup());
+        // 移除测试保存按钮事件（已改为关闭时自动保存）
+        // const testSaveBtn = document.getElementById('testSaveBtn');
+        // if (testSaveBtn) {
+        //     testSaveBtn.addEventListener('click', () => this.testSaveSettings());
+        // }
+        
+        // 自动删除选项事件 - 移除自动保存，改为关闭时保存
+        this.autoDeleteEnabled.addEventListener('change', () => {
+            this.toggleAutoDeleteOptions();
+        });
+        this.deleteByTime.addEventListener('change', () => {
+            this.toggleTimeDeleteGroup();
+        });
+        this.deleteByCount.addEventListener('change', () => {
+            this.toggleCountDeleteGroup();
+        });
+        
+        // 移除自动保存的input事件监听器
+        // this.deleteDays.addEventListener('input', () => this.autoSaveSettings());
+        // this.maxItems.addEventListener('input', () => this.autoSaveSettings());
         
         // 模态框事件
         this.modalCancel.addEventListener('click', () => this.hideModal());
@@ -309,7 +327,7 @@ class ModernClipboardUI {
         const timeAgo = this.getTimeAgo(new Date(item.timestamp));
         const isSelected = index === this.selectedIndex ? 'selected' : '';
         const isFavorite = item.favorite || false; // 检查是否收藏
-        const favoriteClass = isFavorite ? 'favorite-item' : ''; // 收藏记录特殊样式
+        const favoriteClass = isFavorite ? 'favorite' : ''; // 收藏记录特殊样式
         
         // 根据内容类型设置不同的预览
         let preview;
@@ -1096,17 +1114,118 @@ class ModernClipboardUI {
     /**
      * 显示设置页面
      */
+    /**
+     * 显示设置页面并动态调整尺寸
+     */
     showSettings() {
         this.loadSettings();
-        this.settingsModal.style.display = 'flex';
+        this.settingsModal.classList.add('active');
         this.toggleAutoDeleteOptions();
+        
+        // 动态设置模态框尺寸以适应窗口
+        this.adjustModalSize();
+        
+        // 监听窗口大小变化
+        window.addEventListener('resize', this.adjustModalSize);
     }
     
     /**
      * 隐藏设置页面
      */
     hideSettings() {
-        this.settingsModal.style.display = 'none';
+        this.settingsModal.classList.remove('active');
+        
+        // 移除窗口大小变化监听器
+        window.removeEventListener('resize', this.adjustModalSize);
+    }
+    
+    /**
+     * 动态调整模态框尺寸以适应窗口
+     */
+    /**
+     * 动态调整模态框尺寸以适应窗口大小
+     */
+    adjustModalSize() {
+        if (!this.settingsModal) return;
+        
+        // 获取窗口尺寸
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        
+        // 计算可用高度（减去四周间距）
+        const padding = 40; // 上下左右各20px间距
+        const availableHeight = windowHeight - padding;
+        
+        // 计算模态框尺寸（留出边距）
+        const modalWidth = Math.min(windowWidth * 0.9, 800); // 最大90%宽度，但不超过800px
+        const modalHeight = Math.min(availableHeight * 0.95, 700); // 使用可用高度的95%
+        
+        // 确保最小尺寸
+        const finalWidth = Math.max(modalWidth, 400); // 最小宽度400px
+        const finalHeight = Math.max(modalHeight, 350); // 最小高度350px
+        
+        // 应用尺寸
+        const modalContent = this.settingsModal.querySelector('.settings-modal');
+        if (modalContent) {
+            modalContent.style.width = finalWidth + 'px';
+            modalContent.style.height = finalHeight + 'px';
+            modalContent.style.maxWidth = 'none'; // 移除CSS中的最大宽度限制
+            modalContent.style.maxHeight = 'none'; // 移除CSS中的最大高度限制
+            
+            // 确保modal-body可以正常滚动
+            const modalBody = modalContent.querySelector('.modal-body');
+            if (modalBody) {
+                // 清除任何固定高度设置，让flex布局和overflow-y: auto处理滚动
+                modalBody.style.height = '';
+                modalBody.style.maxHeight = '';
+                // 确保滚动样式正确应用
+                modalBody.style.overflowY = 'auto';
+            }
+        }
+    }
+    
+    /**
+     * 关闭设置页面并保存设置
+     */
+    /**
+     * 关闭设置页面并静默保存设置（不显示通知）
+     */
+    async closeSettingsWithSave() {
+        console.log('关闭设置页面，先保存设置...');
+        
+        // 获取当前设置
+        this.settings.autoDelete.enabled = this.autoDeleteEnabled.checked;
+        this.settings.autoDelete.byTime = this.deleteByTime.checked;
+        this.settings.autoDelete.byCount = this.deleteByCount.checked;
+        this.settings.autoDelete.days = parseInt(this.deleteDays.value) || 7;
+        this.settings.autoDelete.maxItems = parseInt(this.maxItems.value) || 100;
+        
+        try {
+            // 检查API是否可用
+            if (!pywebview || !pywebview.api) {
+                console.error('PyWebView API 不可用，无法保存设置');
+                this.hideSettings();
+                return;
+            }
+            
+            console.log('保存设置:', this.settings);
+            const response = await pywebview.api.save_settings(JSON.stringify(this.settings));
+            const result = JSON.parse(response);
+            
+            if (result.success) {
+                console.log('设置保存成功');
+                // 移除通知显示，静默保存
+            } else {
+                console.error('保存设置失败:', result.message);
+                // 移除通知显示，静默保存
+            }
+        } catch (error) {
+            console.error('保存设置异常:', error);
+            // 移除通知显示，静默保存
+        }
+        
+        // 无论保存是否成功，都关闭设置页面
+        this.hideSettings();
     }
     
     /**
@@ -1132,29 +1251,99 @@ class ModernClipboardUI {
     }
     
     /**
-     * 保存设置
+     * 自动保存设置（不显示通知，不关闭设置页面）
+     * 使用防抖机制，避免频繁保存
+     */
+    autoSaveSettings() {
+        // 清除之前的定时器
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+        }
+        
+        // 设置新的定时器，500ms后执行保存
+        this.autoSaveTimer = setTimeout(async () => {
+            // 获取表单数据
+            this.settings.autoDelete.enabled = this.autoDeleteEnabled.checked;
+            this.settings.autoDelete.byTime = this.deleteByTime.checked;
+            this.settings.autoDelete.byCount = this.deleteByCount.checked;
+            this.settings.autoDelete.days = parseInt(this.deleteDays.value) || 7;
+            this.settings.autoDelete.maxItems = parseInt(this.maxItems.value) || 100;
+            
+            console.log('准备保存设置:', this.settings); // 调试日志
+            
+            try {
+                // 检查API是否可用
+                if (!pywebview || !pywebview.api) {
+                    console.error('PyWebView API 不可用');
+                    return;
+                }
+                
+                const response = await pywebview.api.save_settings(JSON.stringify(this.settings));
+                console.log('API响应:', response); // 调试日志
+                
+                const result = JSON.parse(response);
+                
+                if (result.success) {
+                    console.log('设置保存成功');
+                } else {
+                    console.error('自动保存设置失败:', result.message);
+                    this.showNotification('设置保存失败: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('自动保存设置失败:', error);
+                this.showNotification('设置保存失败: ' + error.message, 'error');
+            }
+        }, 500);
+    }
+    
+    /**
+     * 手动保存设置（保留原方法以备其他地方调用）
      */
     async saveSettings() {
-        // 获取表单数据
+        await this.autoSaveSettings();
+        this.showNotification('设置保存成功', 'success');
+    }
+    
+    /**
+     * 测试保存设置功能
+     */
+    async testSaveSettings() {
+        console.log('开始测试保存设置...');
+        
+        // 获取当前设置
         this.settings.autoDelete.enabled = this.autoDeleteEnabled.checked;
         this.settings.autoDelete.byTime = this.deleteByTime.checked;
         this.settings.autoDelete.byCount = this.deleteByCount.checked;
         this.settings.autoDelete.days = parseInt(this.deleteDays.value) || 7;
         this.settings.autoDelete.maxItems = parseInt(this.maxItems.value) || 100;
         
+        console.log('当前设置:', this.settings);
+        
         try {
+            // 检查API是否可用
+            if (!pywebview || !pywebview.api) {
+                const errorMsg = 'PyWebView API 不可用';
+                console.error(errorMsg);
+                this.showNotification(errorMsg, 'error');
+                return;
+            }
+            
+            console.log('调用API保存设置...');
             const response = await pywebview.api.save_settings(JSON.stringify(this.settings));
+            console.log('API响应:', response);
+            
             const result = JSON.parse(response);
             
             if (result.success) {
-                this.showNotification('设置保存成功', 'success');
-                this.hideSettings();
+                console.log('设置保存成功');
+                this.showNotification('设置保存成功！请检查 %APPDATA%\\Copee\\settings.json 文件', 'success');
             } else {
-                this.showNotification('设置保存失败', 'error');
+                console.error('保存设置失败:', result.message);
+                this.showNotification('设置保存失败: ' + result.message, 'error');
             }
         } catch (error) {
-            console.error('保存设置失败:', error);
-            this.showNotification('设置保存失败', 'error');
+            console.error('保存设置异常:', error);
+            this.showNotification('设置保存异常: ' + error.message, 'error');
         }
     }
     

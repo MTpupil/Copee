@@ -12,7 +12,7 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: rgba(255, 255, 255, 0.95);
     color: #333;
-    overflow: hidden;
+    overflow: hidden; /* 保持主体隐藏滚动条，但模态框内部可以滚动 */
     user-select: none;
 }
 
@@ -81,6 +81,20 @@ body {
     color: #667eea;
     border-radius: 6px;
     font-size: 12px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px 16px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(103, 126, 234, 0.3);
 }
 
 .btn-icon:hover {
@@ -569,12 +583,14 @@ body {
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(5px);
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* 改为从顶部开始 */
     justify-content: center;
+    padding: 20px; /* 添加四周间距 */
     z-index: 2000;
     opacity: 0;
     visibility: hidden;
     transition: all 0.3s ease;
+    overflow-y: auto; /* 确保模态框可以滚动 */
 }
 
 .modal-overlay.active {
@@ -766,8 +782,42 @@ body {
 
 /* 设置页面样式 */
 .settings-modal {
-    width: 480px;
-    max-height: 600px;
+    /* 移除固定尺寸，由JavaScript动态设置 */
+    display: flex;
+    flex-direction: column;
+    /* 默认尺寸，防止初始化时闪烁 */
+    width: 600px;
+    height: 500px;
+}
+
+.settings-modal .modal-body {
+    flex: 1;
+    overflow-y: auto; /* 添加垂直滚动 */
+    overflow-x: hidden; /* 隐藏水平滚动条 */
+    padding: 20px 24px; /* 增加内边距 */
+    min-height: 0; /* 确保flex子项可以收缩 */
+    /* 高度由JavaScript动态设置 */
+    /* 确保滚动条样式 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(103, 126, 234, 0.3) transparent;
+}
+
+/* 设置模态框滚动条样式 */
+.settings-modal .modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-modal .modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.settings-modal .modal-body::-webkit-scrollbar-thumb {
+    background: rgba(103, 126, 234, 0.3);
+    border-radius: 3px;
+}
+
+.settings-modal .modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(103, 126, 234, 0.5);
 }
 
 .modal-header {
@@ -777,19 +827,25 @@ body {
 }
 
 .modal-close {
-    background: none;
+    /* 继承btn-icon的样式，但允许自定义 */
+    width: 28px;
+    height: 28px;
+    background: rgba(103, 126, 234, 0.1);
+    color: #667eea;
     border: none;
-    color: #666;
-    font-size: 16px;
+    border-radius: 6px;
+    font-size: 12px;
     cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.2s ease;
 }
 
 .modal-close:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: #333;
+    background: rgba(103, 126, 234, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(103, 126, 234, 0.2);
 }
 
 .settings-section {
@@ -800,6 +856,7 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: #333;
+    margin-top: 8px; /* 添加顶部间距 */
     margin-bottom: 16px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);

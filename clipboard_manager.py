@@ -100,12 +100,12 @@ class ClipboardManager:
         
         # 使用AppData目录存储数据和图片
         import os
-        appdata_dir = os.path.join(os.environ['APPDATA'], 'Copee')
-        if not os.path.exists(appdata_dir):
-            os.makedirs(appdata_dir)
+        self.data_dir = os.path.join(os.environ['APPDATA'], 'Copee')  # 保存数据目录引用
+        if not os.path.exists(self.data_dir):
+            os.makedirs(self.data_dir)
             
-        self.data_file = os.path.join(appdata_dir, "clipboard_data.json")
-        self.images_dir = os.path.join(appdata_dir, 'images')  # 图片存储目录
+        self.data_file = os.path.join(self.data_dir, "clipboard_data.json")
+        self.images_dir = os.path.join(self.data_dir, 'images')  # 图片存储目录
         
         # 创建图片存储目录
         if not os.path.exists(self.images_dir):
@@ -276,14 +276,26 @@ class ClipboardManager:
         settings_file = os.path.join(self.data_dir, 'settings.json')
         
         try:
+            
+            
+            # 确保目录存在
+            if not os.path.exists(self.data_dir):
+                print(f"创建目录: {self.data_dir}")
+                os.makedirs(self.data_dir)
+            
             with open(settings_file, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
+            
+            
             
             # 应用自动删除设置
             self._apply_auto_delete_settings(settings.get('autoDelete', {}))
             return True
         except Exception as e:
             print(f"保存设置失败: {e}")
+            print(f"错误类型: {type(e).__name__}")
+            import traceback
+            print(f"错误堆栈: {traceback.format_exc()}")
             return False
     
     def _apply_auto_delete_settings(self, auto_delete_settings: Dict[str, Any]):
