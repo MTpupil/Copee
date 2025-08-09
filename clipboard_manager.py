@@ -7,9 +7,9 @@
 
 import win32clipboard
 import win32con
-import hashlib
-import json
 import os
+import json
+import hashlib
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from PIL import Image
@@ -79,6 +79,8 @@ class ClipboardItem:
             return f'[文件] {self.content}'
         else:
             return '[未知类型]'
+    
+
 
 class ClipboardManager:
     """

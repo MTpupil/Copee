@@ -242,12 +242,11 @@ class ModernClipboardUI {
      * 创建项目HTML
      */
     createItemHTML(item, index) {
-        const typeIcon = this.getTypeIcon(item.type);
         const timeAgo = this.getTimeAgo(new Date(item.timestamp));
         const isSelected = index === this.selectedIndex ? 'selected' : '';
         const isFavorite = item.favorite || false; // 检查是否收藏
         
-        // 根据内容类型设置不同的图标和预览
+        // 根据内容类型设置不同的预览
         let preview;
         if (item.type === 'image') {
             // 使用API接口获取图片路径
@@ -284,13 +283,9 @@ class ModernClipboardUI {
         return `
             <div class="clipboard-item ${isSelected}" data-index="${index}">
                 <div class="item-content">
-                    <div class="item-icon">
-                        <i class="${typeIcon}"></i>
-                    </div>
                     <div class="item-text">
                         <div class="item-preview">${preview}</div>
                         <div class="item-meta">
-                            <span class="item-type">${this.getTypeText(item.type)}</span>
                             <span class="item-time">${timeAgo}</span>
                         </div>
                     </div>
