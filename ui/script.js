@@ -12,6 +12,19 @@ class ModernClipboardUI {
         this.isSearchMode = false;
         this.isFavoriteMode = false; // 收藏模式标志
         this.filterType = null; // 类型筛选：'text', 'image', null
+        this.searchType = 'normal'; // 搜索类型：'normal', 'regex'
+        this.timeFilter = null; // 时间筛选：'today', 'yesterday', 'week', 'month', null
+        
+        // 设置相关属性
+        this.settings = {
+            autoDelete: {
+                enabled: false,
+                byTime: false,
+                byCount: false,
+                days: 7,
+                maxItems: 100
+            }
+        };
         
         // 绑定DOM元素
         this.bindElements();
@@ -40,6 +53,16 @@ class ModernClipboardUI {
         this.searchInput = document.getElementById('searchInput');
         this.searchClose = document.getElementById('searchClose');
         
+        // 高级搜索选项
+        this.searchOptions = document.getElementById('searchOptions');
+        this.normalSearchBtn = document.getElementById('normalSearchBtn');
+        this.regexSearchBtn = document.getElementById('regexSearchBtn');
+        this.allTimeBtn = document.getElementById('allTimeBtn');
+        this.todayBtn = document.getElementById('todayBtn');
+        this.yesterdayBtn = document.getElementById('yesterdayBtn');
+        this.weekBtn = document.getElementById('weekBtn');
+        this.monthBtn = document.getElementById('monthBtn');
+        
         // 主要内容
         this.clipboardList = document.getElementById('clipboardList');
         this.emptyState = document.getElementById('emptyState');
@@ -55,6 +78,22 @@ class ModernClipboardUI {
         
         // 通知
         this.notification = document.getElementById('notification');
+        
+        // 设置页面
+        this.settingsModal = document.getElementById('settingsModal');
+        this.settingsClose = document.getElementById('settingsClose');
+        this.settingsCancel = document.getElementById('settingsCancel');
+        this.settingsSave = document.getElementById('settingsSave');
+        
+        // 设置选项
+        this.autoDeleteEnabled = document.getElementById('autoDeleteEnabled');
+        this.autoDeleteOptions = document.getElementById('autoDeleteOptions');
+        this.deleteByTime = document.getElementById('deleteByTime');
+        this.deleteByCount = document.getElementById('deleteByCount');
+        this.deleteDays = document.getElementById('deleteDays');
+        this.maxItems = document.getElementById('maxItems');
+        this.timeDeleteGroup = document.getElementById('timeDeleteGroup');
+        this.countDeleteGroup = document.getElementById('countDeleteGroup');
     }
     
     /**
@@ -67,11 +106,36 @@ class ModernClipboardUI {
         this.textFilterBtn.addEventListener('click', () => this.toggleTypeFilter('text'));
         this.imageFilterBtn.addEventListener('click', () => this.toggleTypeFilter('image'));
         this.clearBtn.addEventListener('click', () => this.showClearConfirm());
+        this.settingsBtn.addEventListener('click', () => this.showSettings());
         
         // 搜索事件
         this.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
         this.searchInput.addEventListener('keydown', (e) => this.handleSearchKeydown(e));
         this.searchClose.addEventListener('click', () => this.closeSearch());
+        
+        // 高级搜索选项事件
+        this.normalSearchBtn.addEventListener('click', () => this.setSearchType('normal'));
+        this.regexSearchBtn.addEventListener('click', () => this.setSearchType('regex'));
+        this.allTimeBtn.addEventListener('click', () => this.setTimeFilter(null));
+        this.todayBtn.addEventListener('click', () => this.setTimeFilter('today'));
+        this.yesterdayBtn.addEventListener('click', () => this.setTimeFilter('yesterday'));
+        this.weekBtn.addEventListener('click', () => this.setTimeFilter('week'));
+        this.monthBtn.addEventListener('click', () => this.setTimeFilter('month'));
+        
+        // 设置页面事件
+        this.settingsClose.addEventListener('click', () => this.hideSettings());
+        this.settingsCancel.addEventListener('click', () => this.hideSettings());
+        this.settingsSave.addEventListener('click', () => this.saveSettings());
+        this.settingsModal.addEventListener('click', (e) => {
+            if (e.target === this.settingsModal) {
+                this.hideSettings();
+            }
+        });
+        
+        // 自动删除选项事件
+        this.autoDeleteEnabled.addEventListener('change', () => this.toggleAutoDeleteOptions());
+        this.deleteByTime.addEventListener('change', () => this.toggleTimeDeleteGroup());
+        this.deleteByCount.addEventListener('change', () => this.toggleCountDeleteGroup());
         
         // 模态框事件
         this.modalCancel.addEventListener('click', () => this.hideModal());
@@ -245,6 +309,7 @@ class ModernClipboardUI {
         const timeAgo = this.getTimeAgo(new Date(item.timestamp));
         const isSelected = index === this.selectedIndex ? 'selected' : '';
         const isFavorite = item.favorite || false; // 检查是否收藏
+        const favoriteClass = isFavorite ? 'favorite-item' : ''; // 收藏记录特殊样式
         
         // 根据内容类型设置不同的预览
         let preview;
@@ -281,7 +346,7 @@ class ModernClipboardUI {
             </div>`;
         
         return `
-            <div class="clipboard-item ${isSelected}" data-index="${index}">
+            <div class="clipboard-item ${isSelected} ${favoriteClass}" data-index="${index}">
                 <div class="item-content">
                     <div class="item-text">
                         <div class="item-preview">${preview}</div>
@@ -556,25 +621,24 @@ class ModernClipboardUI {
      * 搜索项目
      */
     async searchItems(keyword) {
-        if (!keyword.trim()) {
-            this.filteredItems = [...this.clipboardItems];
-            this.renderClipboardList();
-            return;
-        }
-        
         try {
-            const response = await pywebview.api.search_items(keyword);
+            const response = await pywebview.api.search_items(keyword, this.searchType, this.timeFilter);
             const result = JSON.parse(response);
             
             if (result.success) {
                 this.filteredItems = result.data;
                 this.renderClipboardList();
+                
+                // 显示搜索结果提示
+                if (keyword.trim() || this.timeFilter) {
+                    this.showNotification(result.message, 'info');
+                }
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
             console.error('搜索失败:', error);
-            this.showNotification('搜索失败', 'error');
+            this.showNotification(error.message || '搜索失败', 'error');
         }
     }
     
@@ -607,6 +671,25 @@ class ModernClipboardUI {
         this.searchContainer.classList.remove('active');
         this.searchInput.value = '';
         this.isSearchMode = false;
+        
+        // 重置搜索选项
+        this.searchType = 'normal';
+        this.timeFilter = null;
+        
+        // 重置按钮状态
+        document.querySelectorAll('.search-mode-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        this.normalSearchBtn.classList.add('active');
+        
+        document.querySelectorAll('.time-filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        this.allTimeBtn.classList.add('active');
+        
+        // 重置搜索框提示文字
+        this.searchInput.placeholder = '搜索剪贴板内容...';
+        
         this.filteredItems = [...this.clipboardItems];
         this.renderClipboardList();
     }
@@ -620,6 +703,58 @@ class ModernClipboardUI {
         this.searchTimeout = setTimeout(() => {
             this.searchItems(keyword);
         }, 300);
+    }
+    
+    /**
+     * 设置搜索类型
+     */
+    setSearchType(type) {
+        this.searchType = type;
+        
+        // 更新按钮状态
+        document.querySelectorAll('.search-mode-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        if (type === 'normal') {
+            this.normalSearchBtn.classList.add('active');
+            this.searchInput.placeholder = '搜索剪贴板内容...';
+        } else if (type === 'regex') {
+            this.regexSearchBtn.classList.add('active');
+            this.searchInput.placeholder = '输入正则表达式...';
+        }
+        
+        // 如果有搜索内容，重新搜索
+        if (this.searchInput.value.trim() || this.timeFilter) {
+            this.searchItems(this.searchInput.value);
+        }
+    }
+    
+    /**
+     * 设置时间筛选
+     */
+    setTimeFilter(filter) {
+        this.timeFilter = filter;
+        
+        // 更新按钮状态
+        document.querySelectorAll('.time-filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        if (filter === null) {
+            this.allTimeBtn.classList.add('active');
+        } else if (filter === 'today') {
+            this.todayBtn.classList.add('active');
+        } else if (filter === 'yesterday') {
+            this.yesterdayBtn.classList.add('active');
+        } else if (filter === 'week') {
+            this.weekBtn.classList.add('active');
+        } else if (filter === 'month') {
+            this.monthBtn.classList.add('active');
+        }
+        
+        // 重新搜索
+        this.searchItems(this.searchInput.value);
     }
     
     /**
@@ -956,6 +1091,113 @@ class ModernClipboardUI {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    /**
+     * 显示设置页面
+     */
+    showSettings() {
+        this.loadSettings();
+        this.settingsModal.style.display = 'flex';
+        this.toggleAutoDeleteOptions();
+    }
+    
+    /**
+     * 隐藏设置页面
+     */
+    hideSettings() {
+        this.settingsModal.style.display = 'none';
+    }
+    
+    /**
+     * 加载设置
+     */
+    async loadSettings() {
+        try {
+            const response = await pywebview.api.get_settings();
+            const result = JSON.parse(response);
+            if (result.success) {
+                this.settings = { ...this.settings, ...result.data };
+            }
+        } catch (error) {
+            console.log('加载设置失败，使用默认设置:', error);
+        }
+        
+        // 更新UI
+        this.autoDeleteEnabled.checked = this.settings.autoDelete.enabled;
+        this.deleteByTime.checked = this.settings.autoDelete.byTime;
+        this.deleteByCount.checked = this.settings.autoDelete.byCount;
+        this.deleteDays.value = this.settings.autoDelete.days;
+        this.maxItems.value = this.settings.autoDelete.maxItems;
+    }
+    
+    /**
+     * 保存设置
+     */
+    async saveSettings() {
+        // 获取表单数据
+        this.settings.autoDelete.enabled = this.autoDeleteEnabled.checked;
+        this.settings.autoDelete.byTime = this.deleteByTime.checked;
+        this.settings.autoDelete.byCount = this.deleteByCount.checked;
+        this.settings.autoDelete.days = parseInt(this.deleteDays.value) || 7;
+        this.settings.autoDelete.maxItems = parseInt(this.maxItems.value) || 100;
+        
+        try {
+            const response = await pywebview.api.save_settings(JSON.stringify(this.settings));
+            const result = JSON.parse(response);
+            
+            if (result.success) {
+                this.showNotification('设置保存成功', 'success');
+                this.hideSettings();
+            } else {
+                this.showNotification('设置保存失败', 'error');
+            }
+        } catch (error) {
+            console.error('保存设置失败:', error);
+            this.showNotification('设置保存失败', 'error');
+        }
+    }
+    
+    /**
+     * 切换自动删除选项显示
+     */
+    toggleAutoDeleteOptions() {
+        const enabled = this.autoDeleteEnabled.checked;
+        const options = document.querySelector('.auto-delete-options');
+        
+        if (enabled) {
+            options.style.display = 'block';
+        } else {
+            options.style.display = 'none';
+        }
+    }
+    
+    /**
+     * 切换时间删除组显示
+     */
+    toggleTimeDeleteGroup() {
+        const enabled = this.deleteByTime.checked;
+        const group = document.querySelector('.time-delete-group');
+        
+        if (enabled) {
+            group.style.display = 'block';
+        } else {
+            group.style.display = 'none';
+        }
+    }
+    
+    /**
+     * 切换条数删除组显示
+     */
+    toggleCountDeleteGroup() {
+        const enabled = this.deleteByCount.checked;
+        const group = document.querySelector('.count-delete-group');
+        
+        if (enabled) {
+            group.style.display = 'block';
+        } else {
+            group.style.display = 'none';
+        }
     }
     
     /**

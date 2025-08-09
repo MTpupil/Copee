@@ -7,6 +7,8 @@ API接口模块
 
 import json
 import time
+import re
+from datetime import datetime, timedelta
 import win32api
 import win32con
 from typing import List, Dict, Any
@@ -317,12 +319,14 @@ class ClipboardAPI:
                 'message': f'清空失败: {str(e)}'
             }, ensure_ascii=False)
             
-    def search_items(self, keyword: str) -> str:
+    def search_items(self, keyword: str, search_type: str = 'normal', time_filter: str = None) -> str:
         """
-        搜索剪贴板项目
+        搜索剪贴板项目（支持普通搜索、正则表达式搜索和时间筛选）
         
         Args:
             keyword: 搜索关键词
+            search_type: 搜索类型 ('normal', 'regex')
+            time_filter: 时间筛选 ('today', 'yesterday', 'week', 'month', None)
             
         Returns:
             str: JSON格式的搜索结果
@@ -330,22 +334,38 @@ class ClipboardAPI:
         try:
             all_items = self.clipboard_manager.get_items()
             
-            # 过滤包含关键词的项目
+            # 首先根据时间筛选
+            if time_filter:
+                all_items = self._filter_by_time(all_items, time_filter)
+            
+            # 如果没有关键词，直接返回时间筛选结果
+            if not keyword.strip():
+                return json.dumps({
+                    'success': True,
+                    'data': all_items,
+                    'message': f'找到 {len(all_items)} 个匹配项目'
+                }, ensure_ascii=False)
+            
+            # 根据搜索类型进行内容筛选
             filtered_items = []
-            for item in all_items:
-                # 根据项目类型进行不同的搜索策略
-                if item['type'] == 'text':
-                    # 文本项目：搜索实际内容
-                    if keyword.lower() in item['content'].lower():
-                        filtered_items.append(item)
-                elif item['type'] == 'image':
-                    # 图片项目：搜索预览文本（通常是"[图片]"），基本不会匹配到用户输入
-                    # 这样可以避免搜索到图片文件名
-                    if keyword.lower() in item['preview'].lower():
-                        filtered_items.append(item)
-                elif item['type'] == 'file':
-                    # 文件项目：搜索文件名
-                    if keyword.lower() in item['content'].lower():
+            
+            if search_type == 'regex':
+                # 正则表达式搜索
+                try:
+                    pattern = re.compile(keyword, re.IGNORECASE)
+                    for item in all_items:
+                        if self._regex_match_item(item, pattern):
+                            filtered_items.append(item)
+                except re.error as regex_error:
+                    return json.dumps({
+                        'success': False,
+                        'data': [],
+                        'message': f'正则表达式错误: {str(regex_error)}'
+                    }, ensure_ascii=False)
+            else:
+                # 普通搜索
+                for item in all_items:
+                    if self._normal_match_item(item, keyword):
                         filtered_items.append(item)
                     
             return json.dumps({
@@ -359,6 +379,98 @@ class ClipboardAPI:
                 'data': [],
                 'message': f'搜索失败: {str(e)}'
             }, ensure_ascii=False)
+    
+    def _filter_by_time(self, items: List[Dict], time_filter: str) -> List[Dict]:
+        """
+        根据时间筛选项目
+        
+        Args:
+            items: 项目列表
+            time_filter: 时间筛选类型
+            
+        Returns:
+            List[Dict]: 筛选后的项目列表
+        """
+        now = datetime.now()
+        filtered_items = []
+        
+        for item in items:
+            try:
+                # 解析项目时间戳
+                item_time = datetime.fromisoformat(item['timestamp'])
+                
+                if time_filter == 'today':
+                    # 今天
+                    if item_time.date() == now.date():
+                        filtered_items.append(item)
+                elif time_filter == 'yesterday':
+                    # 昨天
+                    yesterday = now - timedelta(days=1)
+                    if item_time.date() == yesterday.date():
+                        filtered_items.append(item)
+                elif time_filter == 'week':
+                    # 最近一周
+                    week_ago = now - timedelta(days=7)
+                    if item_time >= week_ago:
+                        filtered_items.append(item)
+                elif time_filter == 'month':
+                    # 最近一个月
+                    month_ago = now - timedelta(days=30)
+                    if item_time >= month_ago:
+                        filtered_items.append(item)
+            except (ValueError, KeyError):
+                # 如果时间戳解析失败，跳过该项目
+                continue
+                
+        return filtered_items
+    
+    def _normal_match_item(self, item: Dict, keyword: str) -> bool:
+        """
+        普通搜索匹配项目
+        
+        Args:
+            item: 项目数据
+            keyword: 搜索关键词
+            
+        Returns:
+            bool: 是否匹配
+        """
+        keyword_lower = keyword.lower()
+        
+        if item['type'] == 'text':
+            # 文本项目：搜索实际内容
+            return keyword_lower in item['content'].lower()
+        elif item['type'] == 'image':
+            # 图片项目：搜索预览文本
+            return keyword_lower in item['preview'].lower()
+        elif item['type'] == 'file':
+            # 文件项目：搜索文件名
+            return keyword_lower in item['content'].lower()
+        
+        return False
+    
+    def _regex_match_item(self, item: Dict, pattern: re.Pattern) -> bool:
+        """
+        正则表达式匹配项目
+        
+        Args:
+            item: 项目数据
+            pattern: 编译后的正则表达式模式
+            
+        Returns:
+            bool: 是否匹配
+        """
+        if item['type'] == 'text':
+            # 文本项目：在实际内容中搜索
+            return bool(pattern.search(item['content']))
+        elif item['type'] == 'image':
+            # 图片项目：在预览文本中搜索
+            return bool(pattern.search(item['preview']))
+        elif item['type'] == 'file':
+            # 文件项目：在文件名中搜索
+            return bool(pattern.search(item['content']))
+        
+        return False
             
     def get_item_count(self) -> str:
         """
@@ -458,4 +570,47 @@ class ClipboardAPI:
             return json.dumps({
                 'success': False,
                 'message': f'隐藏窗口失败: {str(e)}'
+            }, ensure_ascii=False)
+    
+    def get_settings(self) -> str:
+        """
+        获取应用设置
+        
+        Returns:
+            str: JSON格式的设置数据
+        """
+        try:
+            settings = self.clipboard_manager.get_settings()
+            return json.dumps({
+                'success': True,
+                'data': settings,
+                'message': '获取设置成功'
+            }, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'message': f'获取设置失败: {str(e)}'
+            }, ensure_ascii=False)
+    
+    def save_settings(self, settings_data: str) -> str:
+        """
+        保存应用设置
+        
+        Args:
+            settings_data: JSON格式的设置数据
+        
+        Returns:
+            str: JSON格式的响应
+        """
+        try:
+            settings = json.loads(settings_data)
+            self.clipboard_manager.save_settings(settings)
+            return json.dumps({
+                'success': True,
+                'message': '设置保存成功'
+            }, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'message': f'保存设置失败: {str(e)}'
             }, ensure_ascii=False)

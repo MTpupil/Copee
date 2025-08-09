@@ -176,6 +176,73 @@ body {
     background: rgba(103, 126, 234, 0.2);
 }
 
+/* 高级搜索选项样式 */
+.search-options {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.search-option-group {
+    margin-bottom: 12px;
+}
+
+.search-option-group:last-child {
+    margin-bottom: 0;
+}
+
+.search-option-label {
+    display: block;
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.search-mode-buttons,
+.time-filter-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.search-mode-btn,
+.time-filter-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.8);
+    color: #666;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.search-mode-btn:hover,
+.time-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border-color: rgba(103, 126, 234, 0.3);
+}
+
+.search-mode-btn.active,
+.time-filter-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.search-mode-btn i,
+.time-filter-btn i {
+    font-size: 10px;
+}
+
 /* 主内容区域样式移除，直接使用剪贴板列表 */
 
 /* 剪贴板列表 */
@@ -695,4 +762,199 @@ body {
     font-size: 14px;
     color: #888;
     margin: 0;
+}
+
+/* 设置页面样式 */
+.settings-modal {
+    width: 480px;
+    max-height: 600px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+.settings-section {
+    margin-bottom: 24px;
+}
+
+.settings-section h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.setting-group {
+    margin-bottom: 20px;
+}
+
+.setting-item {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.setting-label {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    margin-bottom: 8px;
+    position: relative;
+    padding-left: 28px;
+}
+
+.setting-checkbox {
+    position: absolute;
+    left: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.checkmark {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 18px;
+    width: 18px;
+    background-color: #fff;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.setting-checkbox:checked ~ .checkmark {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.setting-checkbox:checked ~ .checkmark:after {
+    display: block;
+}
+
+.setting-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding-left: 28px;
+}
+
+.setting-input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: center;
+    transition: border-color 0.2s ease;
+}
+
+.setting-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.setting-unit {
+    font-size: 14px;
+    color: #666;
+}
+
+.setting-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: 6px;
+    font-size: 13px;
+    color: #667eea;
+    margin-top: 16px;
+}
+
+.setting-note i {
+    font-size: 14px;
+}
+
+/* 自动删除选项的显示/隐藏 */
+#autoDeleteOptions {
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+#autoDeleteOptions.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* 收藏记录的特殊样式 */
+.clipboard-item.favorite {
+    background: linear-gradient(135deg, 
+        rgba(255, 223, 186, 0.3) 0%, 
+        rgba(255, 239, 213, 0.2) 50%, 
+        rgba(255, 248, 235, 0.1) 100%);
+    border-left: 3px solid #ffa726;
+    position: relative;
+}
+
+.clipboard-item.favorite::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, 
+        rgba(255, 193, 7, 0.05) 0%, 
+        rgba(255, 152, 0, 0.03) 100%);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.clipboard-item.favorite:hover {
+    background: linear-gradient(135deg, 
+        rgba(255, 223, 186, 0.4) 0%, 
+        rgba(255, 239, 213, 0.3) 50%, 
+        rgba(255, 248, 235, 0.2) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.15);
 }

@@ -32,6 +32,9 @@
                 <button class="btn btn-icon" id="clearBtn" title="清空">
                     <i class="fas fa-trash"></i>
                 </button>
+                <button class="btn btn-icon" id="settingsBtn" title="设置">
+                    <i class="fas fa-cog"></i>
+                </button>
             </div>
         </div>
         
@@ -43,6 +46,42 @@
                 <button class="btn btn-icon search-close" id="searchClose">
                     <i class="fas fa-times"></i>
                 </button>
+            </div>
+            
+            <!-- 高级搜索选项 -->
+            <div class="search-options" id="searchOptions">
+                <div class="search-option-group">
+                    <label class="search-option-label">搜索模式:</label>
+                    <div class="search-mode-buttons">
+                        <button class="search-mode-btn active" id="normalSearchBtn" data-mode="normal">
+                            <i class="fas fa-font"></i> 普通
+                        </button>
+                        <button class="search-mode-btn" id="regexSearchBtn" data-mode="regex">
+                            <i class="fas fa-code"></i> 正则
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="search-option-group">
+                    <label class="search-option-label">时间筛选:</label>
+                    <div class="time-filter-buttons">
+                        <button class="time-filter-btn active" id="allTimeBtn" data-filter="">
+                            <i class="fas fa-infinity"></i> 全部
+                        </button>
+                        <button class="time-filter-btn" id="todayBtn" data-filter="today">
+                            <i class="fas fa-calendar-day"></i> 今天
+                        </button>
+                        <button class="time-filter-btn" id="yesterdayBtn" data-filter="yesterday">
+                            <i class="fas fa-calendar-minus"></i> 昨天
+                        </button>
+                        <button class="time-filter-btn" id="weekBtn" data-filter="week">
+                            <i class="fas fa-calendar-week"></i> 本周
+                        </button>
+                        <button class="time-filter-btn" id="monthBtn" data-filter="month">
+                            <i class="fas fa-calendar-alt"></i> 本月
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -62,6 +101,66 @@
     </div>
     
 
+    
+    <!-- 设置页面 -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal settings-modal">
+            <div class="modal-header">
+                <h3>设置</h3>
+                <button class="btn btn-icon modal-close" id="settingsClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h4>自动删除设置</h4>
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" id="autoDeleteEnabled" class="setting-checkbox">
+                            <span class="checkmark"></span>
+                            启用自动删除
+                        </label>
+                    </div>
+                    
+                    <div class="setting-group" id="autoDeleteOptions">
+                        <div class="setting-item">
+                            <label class="setting-label">
+                                <input type="checkbox" id="deleteByTime" class="setting-checkbox">
+                                <span class="checkmark"></span>
+                                按时间删除
+                            </label>
+                            <div class="setting-input-group" id="timeDeleteGroup">
+                                <input type="number" id="deleteDays" class="setting-input" min="1" max="365" value="7">
+                                <span class="setting-unit">天后自动删除</span>
+                            </div>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="setting-label">
+                                <input type="checkbox" id="deleteByCount" class="setting-checkbox">
+                                <span class="checkmark"></span>
+                                按条数删除
+                            </label>
+                            <div class="setting-input-group" id="countDeleteGroup">
+                                <span class="setting-unit">保留最新</span>
+                                <input type="number" id="maxItems" class="setting-input" min="10" max="1000" value="100">
+                                <span class="setting-unit">条记录</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-note">
+                        <i class="fas fa-info-circle"></i>
+                        <span>收藏的记录不会被自动删除</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="settingsCancel">取消</button>
+                <button class="btn btn-primary" id="settingsSave">保存</button>
+            </div>
+        </div>
+    </div>
     
     <!-- 确认对话框 -->
     <div class="modal-overlay" id="modalOverlay">
