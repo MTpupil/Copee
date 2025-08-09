@@ -282,13 +282,8 @@ class ClipboardManager:
         处理图片剪贴板内容 - 优化版本，将图片保存为单独文件
         """
         try:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-            print(f"[{timestamp}] 后端调试: 开始处理图片剪贴板内容")
-            
             # 获取剪贴板中的图片数据
             dib_data = win32clipboard.GetClipboardData(win32con.CF_DIB)
-            print(f"[{timestamp}] 后端调试: 获取到DIB数据，大小: {len(dib_data)} 字节")
             
             # 将DIB数据转换为PIL Image对象
             # DIB格式需要添加文件头才能被PIL识别
@@ -299,19 +294,16 @@ class ClipboardManager:
             
             # 使用PIL打开图片
             image = Image.open(io.BytesIO(bmp_data))
-            print(f"[{timestamp}] 后端调试: PIL图片对象创建成功，尺寸: {image.size}, 模式: {image.mode}")
             
             # 生成图片的哈希值用于去重检查
             img_buffer = io.BytesIO()
             image.save(img_buffer, format='PNG')
             img_data = img_buffer.getvalue()
             img_hash = hashlib.md5(img_data).hexdigest()
-            print(f"[{timestamp}] 后端调试: 图片哈希值: {img_hash}, PNG数据大小: {len(img_data)} 字节")
             
             # 检查是否已存在相同的图片项目（去重）
             for i, existing_item in enumerate(self.items):
                 if existing_item.item_type == 'image' and existing_item.hash == img_hash:
-                    print(f"[{timestamp}] 后端调试: 发现重复图片，移动到最前面")
                     # 如果找到相同项目，将其移到最前面
                     self.items.pop(i)
                     self.items.insert(0, existing_item)
@@ -321,39 +313,25 @@ class ClipboardManager:
             # 生成唯一的文件名
             image_filename = f"{uuid.uuid4().hex}.png"
             image_path = os.path.join(self.images_dir, image_filename)
-            print(f"[{timestamp}] 后端调试: 生成图片文件名: {image_filename}")
-            print(f"[{timestamp}] 后端调试: 图片保存路径: {image_path}")
             
             # 确保图片目录存在
             if not os.path.exists(self.images_dir):
                 os.makedirs(self.images_dir)
-                print(f"[{timestamp}] 后端调试: 创建图片目录: {self.images_dir}")
             
             # 保存图片到文件
             with open(image_path, 'wb') as f:
                 f.write(img_data)
-            print(f"[{timestamp}] 后端调试: 图片文件保存成功")
-            
-            # 验证文件是否真的保存成功
-            if os.path.exists(image_path):
-                saved_size = os.path.getsize(image_path)
-                print(f"[{timestamp}] 后端调试: 验证文件存在，大小: {saved_size} 字节")
-            else:
-                print(f"[{timestamp}] 后端调试: 警告 - 文件保存后不存在!")
             
             # 创建图片项目，content存储文件路径
             new_item = ClipboardItem(image_filename, 'image')
             # 手动设置哈希值，因为我们已经计算过了
             new_item.hash = img_hash
-            print(f"[{timestamp}] 后端调试: 创建新的剪贴板项目")
             
             # 添加新项目到列表最前面
             self.items.insert(0, new_item)
-            print(f"[{timestamp}] 后端调试: 项目添加到列表，当前总数: {len(self.items)}")
             
             # 限制最大数量，删除多余项目时也要删除对应的图片文件
             if len(self.items) > self.max_items:
-                print(f"[{timestamp}] 后端调试: 超过最大数量限制，开始清理旧项目")
                 # 删除多余项目对应的图片文件
                 for item_to_remove in self.items[self.max_items:]:
                     if item_to_remove.item_type == 'image':
@@ -361,21 +339,14 @@ class ClipboardManager:
                         if os.path.exists(old_image_path):
                             try:
                                 os.remove(old_image_path)
-                                print(f"[{timestamp}] 后端调试: 删除旧图片文件: {item_to_remove.content}")
                             except Exception as del_error:
-                                print(f"[{timestamp}] 后端调试: 删除旧图片文件失败: {del_error}")
+                                pass
                 
                 self.items = self.items[:self.max_items]
-                print(f"[{timestamp}] 后端调试: 清理完成，当前项目数: {len(self.items)}")
                 
             self._save_data()
-            print(f"[{timestamp}] 后端调试: 图片处理完成，数据已保存")
         except Exception as e:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-            print(f"[{timestamp}] 后端调试: 图片剪贴板处理异常: {str(e)}")
-            import traceback
-            print(f"[{timestamp}] 后端调试: 异常堆栈: {traceback.format_exc()}")
+            pass
             
     def get_items(self) -> List[Dict[str, Any]]:
         """
@@ -384,22 +355,6 @@ class ClipboardManager:
         Returns:
             List[Dict]: 项目列表
         """
-        from datetime import datetime
-        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-        
-        # 统计项目类型
-        image_count = sum(1 for item in self.items if item.item_type == 'image')
-        text_count = sum(1 for item in self.items if item.item_type == 'text')
-        print(f"[{timestamp}] 后端调试: 获取剪贴板项目列表 - 总数: {len(self.items)}, 图片: {image_count}, 文本: {text_count}")
-        
-        # 检查图片文件的存在性
-        for item in self.items:
-            if item.item_type == 'image':
-                image_path = os.path.join(self.images_dir, item.content)
-                exists = os.path.exists(image_path)
-                if not exists:
-                    print(f"[{timestamp}] 后端调试: 警告 - 图片文件不存在: {item.content}")
-        
         return [item.to_dict() for item in self.items]
         
     def copy_item_to_clipboard(self, index: int) -> bool:

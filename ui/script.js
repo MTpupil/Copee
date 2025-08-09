@@ -268,13 +268,11 @@ class ModernClipboardUI {
                     
                     // 添加图片加载事件监听
                     img.onload = function() {
-                        // 图片加载成功，通知后端记录调试信息
-                        pywebview.api.log_debug(`图片加载成功: ${filename}`);
+                        // 图片加载成功
                     };
                     
                     img.onerror = function() {
-                        // 图片加载失败，通知后端记录调试信息
-                        pywebview.api.log_debug(`图片加载失败: ${filename}, 使用Base64数据`);
+                        // 图片加载失败
                         if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
                             loadingDiv.textContent = '[图片数据无法显示]';
                             loadingDiv.classList.add('error-state');
@@ -287,7 +285,6 @@ class ModernClipboardUI {
                     }
                 } else {
                     // 图片文件不存在，显示错误信息
-                    pywebview.api.log_debug(`图片数据获取失败: ${filename}, 错误: ${result.message}`);
                     if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
                         loadingDiv.textContent = result.message || '[图片文件不存在]';
                         loadingDiv.classList.add('error-state');
@@ -295,7 +292,6 @@ class ModernClipboardUI {
                 }
             } catch (error) {
                 // 显示错误信息
-                pywebview.api.log_debug(`图片加载异常: ${filename}, 错误: ${error.message}`);
                 if (loadingDiv && loadingDiv.classList.contains('image-loading')) {
                     loadingDiv.textContent = '[图片加载失败]';
                     loadingDiv.classList.add('error-state');

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 现代化剪贴板工具 - 主程序
-替代Windows Win+V功能的现代化剪贴板管理器
-支持全局快捷键调用，类似系统Win+V的使用方式
+现代化剪贴板管理器
+支持Win+Z全局快捷键调用
 
 作者: MTpupil
 创建时间: 2025
@@ -13,7 +13,7 @@ import webview
 import threading
 import time
 import json
-import keyboard
+
 import win32gui
 import win32con
 import win32api
@@ -22,14 +22,16 @@ import win32clipboard
 import sys
 import pystray
 from PIL import Image, ImageDraw
-import threading
+
 from clipboard_manager import ClipboardManager
 from api import ClipboardAPI
+
+
 
 class ModernClipboardApp:
     """
     现代化剪贴板应用主类
-    类似Win+V的快捷键调用模式
+    Win+Z快捷键调用模式
     """
     
     def __init__(self):
@@ -46,6 +48,31 @@ class ModernClipboardApp:
         self.running = True
         self.previous_focus_hwnd = None  # 保存之前获得焦点的窗口
         
+        # 快捷键相关
+        self.hotkey_listener = None  # 快捷键监听器
+        
+
+    
+
+    
+
+    
+    def update_tray_menu(self):
+        """
+        更新托盘菜单
+        """
+        if self.tray_icon:
+            # 重新创建菜单（移除系统剪贴板历史相关选项）
+            menu = pystray.Menu(
+                pystray.MenuItem("显示剪贴板", self.show_window_from_tray),
+                pystray.MenuItem("关于", self.show_about),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("退出", self.quit_application)
+            )
+            
+            # 更新托盘图标菜单
+            self.tray_icon.menu = menu
+
     def create_tray_icon(self):
         """
         创建系统托盘图标
@@ -68,7 +95,7 @@ class ModernClipboardApp:
             
             return image
         
-        # 创建托盘菜单
+        # 创建托盘菜单（移除系统剪贴板历史相关选项）
         menu = pystray.Menu(
             pystray.MenuItem("显示剪贴板", self.show_window_from_tray),
             pystray.MenuItem("关于", self.show_about),
@@ -80,7 +107,7 @@ class ModernClipboardApp:
         self.tray_icon = pystray.Icon(
             "Copee",
             create_icon_image(),
-            "win+V 调用",
+            "win+Z 调用",
             menu
         )
         
@@ -113,9 +140,9 @@ class ModernClipboardApp:
                     "关于Copee",
                     "Copee v1.0.0\n\n"
                     "一个现代化的剪贴板管理器\n"
-                    "替代Windows Win+V功能\n\n"
+                    "现代化剪贴板管理器\n\n"
                     "使用方法：\n"
-                    "• Win+V：显示剪贴板历史\n"
+                    "• Win+Z：显示剪贴板历史\n"
                     "• 点击项目：复制到剪贴板\n"
                     "• Escape：隐藏窗口\n\n"
                     "作者: MTpupil"
@@ -136,41 +163,24 @@ class ModernClipboardApp:
         """
         退出应用程序
         """
-        # 开始退出程序
         self.running = False
         
-        # 恢复系统Win+V快捷键
-        try:
-            # 清除我们注册的快捷键
-            keyboard.clear_all_hotkeys()
-            pass  # 系统快捷键已恢复
-        except Exception as e:
-            pass  # 静默处理快捷键恢复错误
+        # 清理所有快捷键
+        self.cleanup_hotkeys()
         
-        # 停止鼠标监听
+        # 快速退出逻辑
         try:
-            if hasattr(self, 'mouse_listener') and self.mouse_listener:
-                self.mouse_listener.stop()
-                pass  # 鼠标监听已停止
-        except Exception as e:
-            pass  # 静默处理鼠标监听停止错误
-        
-        # 快速退出逻辑，避免延迟
-        try:
-            # 立即停止托盘图标
             if self.tray_icon:
                 self.tray_icon.stop()
         except:
             pass
         
         try:
-            # 快速关闭webview窗口
             if self.window:
                 self.window.hide()
         except:
             pass
         
-        # 立即强制退出，避免任何清理延迟
         import os
         os._exit(0)
         
@@ -178,7 +188,7 @@ class ModernClipboardApp:
         """
         创建主窗口 - 无边框，类似系统剪贴板窗口，初始隐藏
         """
-        # 创建webview窗口，类似Win+V的样式
+        # 创建webview窗口
         self.window = webview.create_window(
             title='',                 # 无标题
             url='ui/index.html',      # HTML界面文件
@@ -194,58 +204,42 @@ class ModernClipboardApp:
             hidden=True,              # 初始隐藏窗口
         )
         
-    def disable_system_winv(self):
-        """
-        禁用系统的Win+V快捷键
-        通过注册相同的快捷键来覆盖系统行为
-        """
-        try:
-            # 注册一个空的Win+V处理函数来阻止系统处理
-            def block_system_winv():
-                pass
-            
-            # 先尝试注册一个阻止系统Win+V的处理器
-            keyboard.add_hotkey('win+v', block_system_winv, suppress=True)
-            pass  # 系统Win+V快捷键已禁用
-            return True
-        except Exception as e:
-            pass  # 静默处理禁用系统快捷键错误
-            return False
+
     
     def setup_global_hotkey(self):
         """
-        设置全局快捷键 Win+V
+        设置全局快捷键 Win+Z
         """
         def show_clipboard_window():
             """
             显示剪贴板窗口的回调函数
             """
-            # Win+V 快捷键被触发
             if self.is_window_visible:
-                # 窗口当前可见，准备隐藏
                 self.hide_window()
             else:
-                # 窗口当前隐藏，准备显示
                 self.show_window()
         
-        # 先禁用系统的Win+V
-        self.disable_system_winv()
+        # 清理之前的快捷键
+        self.cleanup_hotkeys()
         
-        # 清除之前的快捷键注册
-        keyboard.clear_all_hotkeys()
-        
-        # 注册我们自己的Win+V快捷键
+        # 使用简单的快捷键注册
         try:
-            keyboard.add_hotkey('windows+v', show_clipboard_window, suppress=True)
-            # 全局快捷键 Win+V 已注册
+            import keyboard
+            keyboard.add_hotkey('win+z', show_clipboard_window)
         except Exception as e:
-            pass  # 静默处理快捷键注册错误
-            # 如果Win+V被占用，尝试使用Ctrl+Shift+V
-            try:
-                keyboard.add_hotkey('ctrl+shift+v', show_clipboard_window)
-                # 全局快捷键 Ctrl+Shift+V 已注册
-            except Exception as e2:
-                pass  # 静默处理备用快捷键注册错误
+            pass
+    
+    def cleanup_hotkeys(self):
+        """
+        清理所有快捷键
+        """
+        try:
+            import keyboard
+            keyboard.clear_all_hotkeys()
+        except Exception as e:
+            pass
+    
+
     
     def get_cursor_position(self):
         """
@@ -261,8 +255,8 @@ class ModernClipboardApp:
         """
         在光标位置显示窗口
         """
-        # 尝试显示窗口
         
+        # 尝试显示窗口
         if not self.window:
             # 错误: 窗口对象不存在
             return
@@ -302,35 +296,27 @@ class ModernClipboardApp:
             else:
                 y = cursor_y + 10
                 
-            # 确保坐标不为负数
             x = max(0, x)
             y = max(0, y)
             
-            # 使用SW_SHOWNOACTIVATE显示窗口，不激活窗口，保持原有焦点
             win32gui.ShowWindow(self.window_hwnd, win32con.SW_SHOWNOACTIVATE)
             
-            # 移动窗口到指定位置并置顶，使用SWP_NOACTIVATE标志确保不激活窗口
             win32gui.SetWindowPos(
                 self.window_hwnd, 
-                win32con.HWND_TOPMOST,  # 置顶显示
+                win32con.HWND_TOPMOST,
                 x, y, 0, 0, 
-                win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE  # 不激活窗口，保持原有焦点
+                win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE
             )
-            
-            # 确保窗口可见但不获得焦点，保持原输入框的焦点状态
-            # 窗口已显示，保持原有焦点状态
             
             self.is_window_visible = True
             
-            # 刷新剪贴板数据
             try:
-                # 调用前端更新函数
                 self.window.evaluate_js('updateClipboardList()')
             except Exception as js_error:
-                pass  # 静默处理剪贴板数据刷新错误
+                pass
                 
         except Exception as e:
-            pass  # 静默处理窗口显示错误
+            pass
     
     def hide_window(self):
         """
@@ -351,6 +337,8 @@ class ModernClipboardApp:
                         pass  # 静默处理焦点恢复错误
                     finally:
                         self.previous_focus_hwnd = None
+                        
+
         except Exception as e:
             pass  # 静默处理窗口隐藏错误
     
@@ -395,31 +383,21 @@ class ModernClipboardApp:
                 self.window_hwnd = find_webview_window()
                 
                 if self.window_hwnd:
-                    # 找到窗口句柄
-                    
-                    # 设置窗口样式，确保不会鼠标穿透
                     ex_style = win32gui.GetWindowLong(self.window_hwnd, win32con.GWL_EXSTYLE)
-                    ex_style |= win32con.WS_EX_TOOLWINDOW  # 工具窗口，不在任务栏显示
-                    ex_style &= ~win32con.WS_EX_APPWINDOW  # 移除应用窗口标志
-                    ex_style &= ~win32con.WS_EX_TRANSPARENT  # 确保窗口不透明，避免鼠标穿透
-                    ex_style &= ~win32con.WS_EX_LAYERED  # 移除分层窗口属性
+                    ex_style |= win32con.WS_EX_TOOLWINDOW
+                    ex_style &= ~win32con.WS_EX_APPWINDOW
+                    ex_style &= ~win32con.WS_EX_TRANSPARENT
+                    ex_style &= ~win32con.WS_EX_LAYERED
                     win32gui.SetWindowLong(self.window_hwnd, win32con.GWL_EXSTYLE, ex_style)
                     
-                    # 设置窗口基本样式
                     style = win32gui.GetWindowLong(self.window_hwnd, win32con.GWL_STYLE)
-                    style |= win32con.WS_VISIBLE  # 确保窗口可见时能接收鼠标事件
+                    style |= win32con.WS_VISIBLE
                     win32gui.SetWindowLong(self.window_hwnd, win32con.GWL_STYLE, style)
                     
-                    # 窗口样式已设置，确保不会鼠标穿透
-                    
-                    # 确保窗口初始隐藏
                     win32gui.ShowWindow(self.window_hwnd, win32con.SW_HIDE)
                     self.is_window_visible = False
-                else:
-                    # 警告: 未能找到窗口句柄
-                    pass
             except Exception as e:
-                pass  # 静默处理窗口句柄获取错误
+                pass
         
         # 窗口加载完成后执行
         if self.window:
@@ -433,21 +411,21 @@ class ModernClipboardApp:
             """
             剪贴板监控线程函数
             """
-            while True:
+            while self.running:
                 try:
-                    # 检查剪贴板变化
                     if self.clipboard_manager.check_clipboard_change():
-                        # 如果窗口可见，通知前端更新
                         if self.window and self.is_window_visible:
                             self.window.evaluate_js('updateClipboardList()')
-                    time.sleep(0.5)  # 每0.5秒检查一次
+                    time.sleep(0.5)
                 except Exception as e:
-                    pass  # 静默处理剪贴板监控错误
+                    pass
                     time.sleep(1)
         
         # 启动监控线程
         monitor = threading.Thread(target=monitor_thread, daemon=True)
         monitor.start()
+    
+
     
     def start_click_monitor(self):
         """
@@ -473,12 +451,11 @@ class ModernClipboardApp:
                             break
                         current_hwnd = win32gui.GetParent(current_hwnd)
                     
-                    # 如果点击的不是我们的窗口，则隐藏
                     if not is_our_window:
                         self.hide_window()
                         
                 except Exception as e:
-                    pass  # 静默处理鼠标点击错误
+                    pass
         
         # 启动鼠标监听
         try:
@@ -514,28 +491,23 @@ class ModernClipboardApp:
             # 启动鼠标点击监控
             self.start_click_monitor()
             
-            # 设置全局快捷键
+            # 设置全局快捷键Win+Z
             self.setup_global_hotkey()
             
-            # Copee已启动
-            # 托盘图标已显示，使用 Win+V 调用剪贴板窗口
-            # 右键托盘图标可以退出程序
-            
-            # 在单独线程中启动托盘图标
+            # 启动系统托盘
             tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
             tray_thread.start()
             
-            # 等待所有组件初始化完成
+            # 短暂等待确保所有组件初始化完成
             time.sleep(0.5)
             
-            # 启动webview（隐藏状态）
-            webview.start(debug=False)  # 生产环境设为False
+            # 启动webview界面
+            webview.start(debug=False)
             
         except KeyboardInterrupt:
-            # 程序被用户中断
             self.quit_application()
         except Exception as e:
-            pass  # 静默处理程序运行错误
+            pass
             self.quit_application()
 
 def main():

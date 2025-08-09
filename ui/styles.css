@@ -16,7 +16,7 @@ body {
     user-select: none;
 }
 
-/* 主容器 - 类似系统Win+V的样式 */
+/* 主容器 - 现代化剪贴板样式 */
 .app-container {
     height: 100vh;
     display: flex;
