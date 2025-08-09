@@ -10,7 +10,8 @@ class ModernClipboardUI {
         this.filteredItems = [];
         this.selectedIndex = -1;
         this.isSearchMode = false;
-        this.contextMenuTarget = null;
+        this.isFavoriteMode = false; // 收藏模式标志
+        this.filterType = null; // 类型筛选：'text', 'image', null
         
         // 绑定DOM元素
         this.bindElements();
@@ -28,6 +29,9 @@ class ModernClipboardUI {
     bindElements() {
         // 头部元素
         this.searchBtn = document.getElementById('searchBtn');
+        this.favoriteBtn = document.getElementById('favoriteBtn');
+        this.textFilterBtn = document.getElementById('textFilterBtn');
+        this.imageFilterBtn = document.getElementById('imageFilterBtn');
         this.clearBtn = document.getElementById('clearBtn');
         this.settingsBtn = document.getElementById('settingsBtn');
         
@@ -40,8 +44,7 @@ class ModernClipboardUI {
         this.clipboardList = document.getElementById('clipboardList');
         this.emptyState = document.getElementById('emptyState');
         
-        // 右键菜单
-        this.contextMenu = document.getElementById('contextMenu');
+
         
         // 模态框
         this.modalOverlay = document.getElementById('modalOverlay');
@@ -60,6 +63,9 @@ class ModernClipboardUI {
     bindEvents() {
         // 头部按钮事件
         this.searchBtn.addEventListener('click', () => this.toggleSearch());
+        this.favoriteBtn.addEventListener('click', () => this.toggleFavoriteMode());
+        this.textFilterBtn.addEventListener('click', () => this.toggleTypeFilter('text'));
+        this.imageFilterBtn.addEventListener('click', () => this.toggleTypeFilter('image'));
         this.clearBtn.addEventListener('click', () => this.showClearConfirm());
         
         // 搜索事件
@@ -75,15 +81,7 @@ class ModernClipboardUI {
             }
         });
         
-        // 右键菜单事件
-        document.addEventListener('click', () => this.hideContextMenu());
-        this.contextMenu.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const action = e.target.closest('.context-menu-item')?.dataset.action;
-            if (action) {
-                this.handleContextMenuAction(action);
-            }
-        });
+
         
         // 键盘事件
         document.addEventListener('keydown', (e) => this.handleKeydown(e));
@@ -99,25 +97,64 @@ class ModernClipboardUI {
             }, 100);
         });
         
-        // 阻止右键菜单的默认行为
-        document.addEventListener('contextmenu', (e) => {
-            if (e.target.closest('.clipboard-item')) {
-                e.preventDefault();
-            }
-        });
+
     }
     
     /**
      * 初始化应用
      */
     async init() {
+        // 显示加载状态
+        this.showLoadingState();
+        
         try {
+            // 等待一小段时间确保API准备就绪
+            await this.waitForAPI();
             await this.loadClipboardItems();
             // 移除状态栏更新调用
         } catch (error) {
             console.error('初始化失败:', error);
-            this.showNotification('初始化失败', 'error');
+            // 不显示错误通知，静默处理，因为这通常是加载中的正常状态
+            // 继续尝试加载，直到成功
+            setTimeout(() => this.init(), 1000);
         }
+    }
+    
+    /**
+     * 等待API准备就绪
+     */
+    async waitForAPI() {
+        let retries = 0;
+        const maxRetries = 10;
+        
+        while (retries < maxRetries) {
+            try {
+                // 尝试调用一个简单的API来检查是否准备就绪
+                if (typeof pywebview !== 'undefined' && pywebview.api) {
+                    await pywebview.api.get_item_count();
+                    return; // API准备就绪
+                }
+            } catch (error) {
+                // API还未准备就绪，继续等待
+            }
+            
+            retries++;
+            await new Promise(resolve => setTimeout(resolve, 200)); // 等待200ms
+        }
+        
+        throw new Error('API未能在预期时间内准备就绪');
+    }
+    
+    /**
+     * 显示加载状态
+     */
+    showLoadingState() {
+        this.clipboardList.innerHTML = `
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>正在加载剪贴板内容...</p>
+            </div>
+        `;
     }
     
     /**
@@ -137,7 +174,8 @@ class ModernClipboardUI {
             }
         } catch (error) {
             console.error('加载剪贴板项目失败:', error);
-            this.showNotification('加载失败', 'error');
+            // 只在多次重试后仍然失败时才显示错误
+            throw error;
         }
     }
     
@@ -145,7 +183,23 @@ class ModernClipboardUI {
      * 渲染剪贴板列表
      */
     renderClipboardList() {
-        const items = this.isSearchMode ? this.filteredItems : this.clipboardItems;
+        let items;
+        
+        if (this.isFavoriteMode) {
+            // 收藏模式：只显示收藏的项目
+            items = this.clipboardItems.filter(item => item.favorite);
+        } else if (this.isSearchMode) {
+            // 搜索模式：显示搜索结果
+            items = this.filteredItems;
+        } else {
+            // 普通模式：显示所有项目
+            items = this.clipboardItems;
+        }
+        
+        // 应用类型筛选
+        if (this.filterType) {
+            items = items.filter(item => item.type === this.filterType);
+        }
         
         if (items.length === 0) {
             this.showEmptyState();
@@ -154,12 +208,26 @@ class ModernClipboardUI {
         
         this.hideEmptyState();
         
-        const html = items.map((item, index) => {
-            const actualIndex = this.isSearchMode ? 
-                this.clipboardItems.findIndex(original => original.hash === item.hash) : index;
+        const html = items.map((item, displayIndex) => {
+            // 需要找到原始数组中的实际索引
+            let actualIndex = displayIndex;
+            if (this.isSearchMode || this.isFavoriteMode) {
+                actualIndex = this.clipboardItems.findIndex(original => original.hash === item.hash);
+            }
+            
+            // 索引映射处理
+            if ((this.isSearchMode || this.isFavoriteMode || this.filterType) && actualIndex === -1) {
+                // 如果找不到匹配项，跳过这个项目
+                return '';
+            }
+            
+            // 验证索引有效性
+            if (actualIndex < 0 || actualIndex >= this.clipboardItems.length) {
+                return '';
+            }
             
             return this.createItemHTML(item, actualIndex);
-        }).join('');
+        }).filter(html => html !== '').join('');
         
         this.clipboardList.innerHTML = html;
         
@@ -177,6 +245,7 @@ class ModernClipboardUI {
         const typeIcon = this.getTypeIcon(item.type);
         const timeAgo = this.getTimeAgo(new Date(item.timestamp));
         const isSelected = index === this.selectedIndex ? 'selected' : '';
+        const isFavorite = item.favorite || false; // 检查是否收藏
         
         // 根据内容类型设置不同的图标和预览
         let preview;
@@ -187,6 +256,30 @@ class ModernClipboardUI {
         } else {
             preview = this.escapeHtml(item.preview);
         }
+        
+        // 根据内容类型生成操作按钮
+        let actionButtons = `
+            <div class="item-actions">
+                <button class="action-btn" data-action="copy" title="复制">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button class="action-btn ${isFavorite ? 'favorited' : ''}" data-action="favorite" title="${isFavorite ? '取消收藏' : '收藏'}">
+                    <i class="fas fa-star ${isFavorite ? 'favorited' : ''}"></i>
+                </button>`
+        
+        // 只有文本类型才显示"仅复制文本"按钮
+        if (item.type === 'text') {
+            actionButtons += `
+                <button class="action-btn" data-action="copyText" title="仅复制纯文本">
+                    <i class="fas fa-font"></i>
+                </button>`;
+        }
+        
+        actionButtons += `
+                <button class="action-btn delete-btn" data-action="delete" title="删除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>`;
         
         return `
             <div class="clipboard-item ${isSelected}" data-index="${index}">
@@ -202,6 +295,7 @@ class ModernClipboardUI {
                         </div>
                     </div>
                 </div>
+                ${actionButtons}
             </div>
         `;
     }
@@ -214,6 +308,11 @@ class ModernClipboardUI {
         
         items.forEach(item => {
             const index = parseInt(item.dataset.index);
+            
+            // 检查索引是否有效
+            if (isNaN(index) || index < 0 || index >= this.clipboardItems.length || !this.clipboardItems[index]) {
+                return; // 跳过无效项目
+            }
             
             // 点击事件
             item.addEventListener('click', (e) => {
@@ -228,11 +327,7 @@ class ModernClipboardUI {
                 this.copyItem(index);
             });
             
-            // 右键事件
-            item.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                this.showContextMenu(e, index);
-            });
+
             
             // 动作按钮事件
             const actionBtns = item.querySelectorAll('.action-btn');
@@ -347,22 +442,98 @@ class ModernClipboardUI {
     }
     
     /**
-     * 删除项目
+     * 仅复制纯文本内容（去除格式）
      */
-    async deleteItem(index) {
+    async copyTextOnly(index) {
         try {
-            const response = await pywebview.api.delete_item(index);
+            const response = await pywebview.api.copy_text_only(index);
             const result = JSON.parse(response);
             
             if (result.success) {
-                this.showNotification('项目已删除', 'success');
+                console.log(result.message);
+                
+                // 复制成功后立即隐藏窗口
+                setTimeout(async () => {
+                    try {
+                        await pywebview.api.hide_window();
+                    } catch (error) {
+                        console.error('隐藏窗口失败:', error);
+                    }
+                }, 100);
+                
                 await this.loadClipboardItems();
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
-            console.error('删除失败:', error);
-            this.showNotification('删除失败', 'error');
+            console.error('仅复制文本失败:', error);
+            this.showNotification('仅复制文本失败', 'error');
+        }
+    }
+    
+    /**
+     * 切换收藏状态
+     */
+    async toggleFavorite(index) {
+        try {
+            const response = await pywebview.api.toggle_favorite(index);
+            const result = JSON.parse(response);
+            
+            if (result.success) {
+                this.showNotification(result.message, 'success');
+                await this.loadClipboardItems();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('切换收藏状态失败:', error);
+            this.showNotification('操作失败', 'error');
+        }
+    }
+    
+    /**
+     * 获取收藏的项目
+     */
+    getFavoriteItems() {
+        return this.clipboardItems.filter(item => item.favorite);
+    }
+    
+    /**
+     * 删除项目
+     */
+    async deleteItem(index) {
+        try {
+            // 验证索引参数
+            if (index === null || index === undefined || isNaN(index)) {
+                this.showNotification(`无效的索引参数: ${index}`, 'error');
+                return;
+            }
+            
+            // 确保索引是整数
+            index = parseInt(index);
+            if (isNaN(index)) {
+                this.showNotification(`索引无法转换为整数: ${index}`, 'error');
+                return;
+            }
+            
+            // 验证索引范围
+            if (index < 0 || index >= this.clipboardItems.length) {
+                this.showNotification(`索引超出范围: ${index}, 总数: ${this.clipboardItems.length}`, 'error');
+                return;
+            }
+            
+            // 调用后端API删除项目
+            const response = await pywebview.api.delete_item(index);
+            const result = JSON.parse(response);
+            
+            if (result.success) {
+                this.showNotification(result.message || '项目已删除', 'success');
+                await this.loadClipboardItems();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            this.showNotification(`删除失败: ${error.message}`, 'error');
         }
     }
     
@@ -522,7 +693,21 @@ class ModernClipboardUI {
      * 导航项目
      */
     navigateItems(direction) {
-        const items = this.isSearchMode ? this.filteredItems : this.clipboardItems;
+        let items;
+        
+        if (this.isFavoriteMode) {
+            items = this.clipboardItems.filter(item => item.favorite);
+        } else if (this.isSearchMode) {
+            items = this.filteredItems;
+        } else {
+            items = this.clipboardItems;
+        }
+        
+        // 应用类型筛选
+        if (this.filterType) {
+            items = items.filter(item => item.type === this.filterType);
+        }
+        
         if (items.length === 0) return;
         
         let newIndex = this.selectedIndex + direction;
@@ -533,8 +718,8 @@ class ModernClipboardUI {
             newIndex = 0;
         }
         
-        // 如果是搜索模式，需要找到实际索引
-        if (this.isSearchMode) {
+        // 如果是搜索模式、收藏模式或类型筛选，需要找到实际索引
+        if (this.isSearchMode || this.isFavoriteMode || this.filterType) {
             const actualIndex = this.clipboardItems.findIndex(
                 item => item.hash === items[newIndex].hash
             );
@@ -560,52 +745,47 @@ class ModernClipboardUI {
         }
     }
     
+
+    
     /**
-     * 显示右键菜单
+     * 切换收藏模式
      */
-    showContextMenu(e, index) {
-        this.contextMenuTarget = index;
+    toggleFavoriteMode() {
+        this.isFavoriteMode = !this.isFavoriteMode;
         
-        const x = e.clientX;
-        const y = e.clientY;
+        // 更新按钮状态 - 添加特殊的收藏激活样式
+        this.favoriteBtn.classList.toggle('active', this.isFavoriteMode);
+        this.favoriteBtn.classList.toggle('favorite-active', this.isFavoriteMode);
         
-        this.contextMenu.style.left = `${x}px`;
-        this.contextMenu.style.top = `${y}px`;
-        this.contextMenu.classList.add('active');
+        // 如果开启收藏模式，关闭搜索模式
+        if (this.isFavoriteMode && this.isSearchMode) {
+            this.closeSearch();
+        }
         
-        // 确保菜单在视窗内
-        setTimeout(() => {
-            const rect = this.contextMenu.getBoundingClientRect();
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            
-            if (rect.right > viewportWidth) {
-                this.contextMenu.style.left = `${x - rect.width}px`;
-            }
-            
-            if (rect.bottom > viewportHeight) {
-                this.contextMenu.style.top = `${y - rect.height}px`;
-            }
-        }, 0);
+        // 重新渲染列表
+        this.renderClipboardList();
     }
     
     /**
-     * 隐藏右键菜单
+     * 切换类型筛选
      */
-    hideContextMenu() {
-        this.contextMenu.classList.remove('active');
-        this.contextMenuTarget = null;
+    toggleTypeFilter(type) {
+        // 如果当前已经是这个类型，则取消筛选
+        if (this.filterType === type) {
+            this.filterType = null;
+        } else {
+            this.filterType = type;
+        }
+        
+        // 更新按钮状态
+        this.textFilterBtn.classList.toggle('active', this.filterType === 'text');
+        this.imageFilterBtn.classList.toggle('active', this.filterType === 'image');
+        
+        // 重新渲染列表
+        this.renderClipboardList();
     }
     
-    /**
-     * 处理右键菜单动作
-     */
-    handleContextMenuAction(action) {
-        if (this.contextMenuTarget === null) return;
-        
-        this.hideContextMenu();
-        this.handleItemAction(action, this.contextMenuTarget);
-    }
+
     
     /**
      * 处理项目动作
@@ -613,8 +793,13 @@ class ModernClipboardUI {
     handleItemAction(action, index) {
         switch (action) {
             case 'copy':
-            case 'copyText':
                 this.copyItem(index);
+                break;
+            case 'copyText':
+                this.copyTextOnly(index);
+                break;
+            case 'favorite':
+                this.toggleFavorite(index);
                 break;
             case 'delete':
                 this.showDeleteConfirm(index);

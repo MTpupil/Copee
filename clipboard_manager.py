@@ -21,7 +21,7 @@ class ClipboardItem:
     剪贴板项目类
     """
     
-    def __init__(self, content: str, item_type: str, timestamp: datetime = None):
+    def __init__(self, content: str, item_type: str, timestamp: datetime = None, favorite: bool = False):
         """
         初始化剪贴板项目
         
@@ -29,10 +29,12 @@ class ClipboardItem:
             content: 内容
             item_type: 类型 (text, image, file)
             timestamp: 时间戳
+            favorite: 是否收藏
         """
         self.content = content
         self.item_type = item_type
         self.timestamp = timestamp or datetime.now()
+        self.favorite = favorite
         self.hash = self._generate_hash()
         
     def _generate_hash(self) -> str:
@@ -57,7 +59,8 @@ class ClipboardItem:
             'type': self.item_type,
             'timestamp': self.timestamp.isoformat(),
             'hash': self.hash,
-            'preview': self._get_preview()
+            'preview': self._get_preview(),
+            'favorite': self.favorite
         }
         
     def _get_preview(self) -> str:
@@ -110,6 +113,38 @@ class ClipboardManager:
         self._load_data()
         self._cleanup_orphaned_images()  # 清理孤立的图片文件
         
+        # 初始化当前剪贴板状态，避免启动时自动保存当前剪贴板内容
+        self._init_clipboard_state()
+        
+    def _init_clipboard_state(self):
+        """
+        初始化剪贴板状态，获取当前剪贴板内容的hash但不保存
+        """
+        try:
+            win32clipboard.OpenClipboard()
+            
+            # 检查文本内容
+            if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                content = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+                self.last_clipboard_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
+            # 检查图片内容
+            elif win32clipboard.IsClipboardFormatAvailable(win32con.CF_DIB):
+                try:
+                    dib_data = win32clipboard.GetClipboardData(win32con.CF_DIB)
+                    self.last_clipboard_hash = hashlib.md5(dib_data).hexdigest()
+                except:
+                    self.last_clipboard_hash = ""
+            else:
+                self.last_clipboard_hash = ""
+                
+            win32clipboard.CloseClipboard()
+        except Exception as e:
+            try:
+                win32clipboard.CloseClipboard()
+            except:
+                pass
+            self.last_clipboard_hash = ""
+        
     def _load_data(self):
         """
         从文件加载历史数据
@@ -119,14 +154,20 @@ class ClipboardManager:
                 with open(self.data_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     for item_data in data:
+                        # 兼容旧版本数据，如果没有favorite字段则默认为False
+                        favorite = item_data.get('favorite', False)
                         item = ClipboardItem(
                             content=item_data['content'],
                             item_type=item_data['type'],
-                            timestamp=datetime.fromisoformat(item_data['timestamp'])
+                            timestamp=datetime.fromisoformat(item_data['timestamp']),
+                            favorite=favorite
                         )
                         self.items.append(item)
+            else:
+                self.items = []
         except Exception as e:
-            pass  # 静默处理历史数据加载错误
+            # 如果加载失败，创建空列表
+            self.items = []
             
     def _save_data(self):
         """
@@ -188,7 +229,6 @@ class ClipboardManager:
                 win32clipboard.CloseClipboard()
             except:
                 pass
-            pass  # 静默处理剪贴板检查错误
             return False
     
     def _cleanup_orphaned_images(self):
@@ -215,16 +255,33 @@ class ClipboardManager:
                     except:
                         pass  # 静默处理文件删除错误
                         
+            # 清理之前删除失败的文件
+            self._cleanup_failed_deletions()
+                        
         except Exception as e:
             pass  # 静默处理清理错误
             
-        except Exception as e:
+    def _cleanup_failed_deletions(self):
+        """
+        清理之前删除失败的图片文件
+        """
+        if not hasattr(self, '_failed_deletions') or not self._failed_deletions:
+            return
+            
+        # 尝试删除失败列表中的文件
+        remaining_failed = []
+        for file_path in self._failed_deletions:
             try:
-                win32clipboard.CloseClipboard()
-            except:
-                pass
-            pass  # 静默处理剪贴板检查错误
-            return False
+                if os.path.exists(file_path):
+                    import stat
+                    os.chmod(file_path, stat.S_IWRITE)
+                    os.remove(file_path)
+            except Exception:
+                # 仍然删除失败，保留在列表中
+                remaining_failed.append(file_path)
+                
+        # 更新失败列表
+        self._failed_deletions = remaining_failed
             
     def _add_text_item(self, content: str):
         """
@@ -454,6 +511,89 @@ class ClipboardManager:
             
         return False
         
+    def copy_text_only_to_clipboard(self, index: int) -> bool:
+        """
+        将指定项目的纯文本内容复制到剪贴板（图片项目复制其预览文本）
+        
+        Args:
+            index: 项目索引
+            
+        Returns:
+            bool: 是否成功
+        """
+        try:
+            if 0 <= index < len(self.items):
+                item = self.items[index]
+                
+                # 打开剪贴板
+                win32clipboard.OpenClipboard()
+                win32clipboard.EmptyClipboard()
+                
+                if item.item_type == 'text':
+                    text_content = item.content
+                elif item.item_type == 'image':
+                    text_content = '[图片]'
+                elif item.item_type == 'file':
+                    text_content = f'[文件] {item.content}'
+                else:
+                    text_content = '[未知类型]'
+                
+                # 处理文本内容，确保编码正确
+                try:
+                    # 确保文本是有效的Unicode字符串
+                    if isinstance(text_content, bytes):
+                        text_content = text_content.decode('utf-8', errors='replace')
+                    
+                    # 清理可能导致编码问题的字符
+                    text_content = text_content.replace('\u2028', '\n')  # 行分隔符
+                    text_content = text_content.replace('\u2029', '\n\n')  # 段落分隔符
+                    text_content = text_content.replace('\u00a0', ' ')  # 不间断空格
+                    
+                    # 移除或替换其他可能有问题的控制字符
+                    import re
+                    text_content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text_content)
+                    
+                except Exception as encoding_error:
+                    text_content = str(text_content)
+                
+                # 设置文本内容到剪贴板
+                win32clipboard.SetClipboardText(text_content)
+                win32clipboard.CloseClipboard()
+                
+                # 移动到最前面
+                self.items.remove(item)
+                self.items.insert(0, item)
+                self._save_data()
+                
+                return True
+                
+        except Exception as e:
+            try:
+                win32clipboard.CloseClipboard()
+            except:
+                pass
+            
+        return False
+        
+    def toggle_favorite(self, index: int) -> tuple[bool, bool]:
+        """
+        切换指定项目的收藏状态
+        
+        Args:
+            index: 项目索引
+            
+        Returns:
+            tuple[bool, bool]: (是否成功, 收藏状态)
+        """
+        try:
+            if 0 <= index < len(self.items):
+                self.items[index].favorite = not self.items[index].favorite
+                self._save_data()
+                return True, self.items[index].favorite
+            return False, False
+        except Exception as e:
+            return False, False
+        
     def delete_item(self, index: int) -> bool:
         """
         删除指定项目
@@ -471,31 +611,60 @@ class ClipboardManager:
                 # 如果是图片项目，删除对应的图片文件
                 if item_to_delete.item_type == 'image':
                     image_path = os.path.join(self.images_dir, item_to_delete.content)
+                    
                     if os.path.exists(image_path):
                         try:
-                            os.remove(image_path)
-                        except:
-                            pass  # 静默处理文件删除错误
+                            # 尝试多次删除，处理文件被占用的情况
+                            import stat
+                            import time
+                            
+                            max_retries = 3
+                            for retry in range(max_retries):
+                                try:
+                                    os.chmod(image_path, stat.S_IWRITE)  # 确保文件可写
+                                    os.remove(image_path)
+                                    break  # 删除成功，跳出重试循环
+                                except (PermissionError, OSError):
+                                    if retry < max_retries - 1:
+                                        time.sleep(0.1)  # 等待100ms后重试
+                                        continue
+                                    else:
+                                        # 最后一次重试失败，记录到待清理列表
+                                        if hasattr(self, '_failed_deletions'):
+                                            self._failed_deletions.append(image_path)
+                                        else:
+                                            self._failed_deletions = [image_path]
+                                        break
+                                        
+                        except Exception:
+                            # 即使文件删除失败，也继续删除项目记录
+                            if hasattr(self, '_failed_deletions'):
+                                self._failed_deletions.append(image_path)
+                            else:
+                                self._failed_deletions = [image_path]
                 
-                self.items.pop(index)
+                # 删除项目记录
+                deleted_item = self.items.pop(index)
+                
+                # 保存数据到文件
                 self._save_data()
                 return True
-        except Exception as e:
-            pass  # 静默处理项目删除错误
-            
-        return False
+            else:
+                return False
+        except Exception:
+            return False
         
     def clear_all(self) -> bool:
         """
-        清空所有项目
+        清空所有项目（保留收藏的项目）
         
         Returns:
             bool: 是否成功
         """
         try:
-            # 删除所有图片文件
+            # 删除非收藏项目的图片文件
             for item in self.items:
-                if item.item_type == 'image':
+                if not item.favorite and item.item_type == 'image':
                     image_path = os.path.join(self.images_dir, item.content)
                     if os.path.exists(image_path):
                         try:
@@ -503,7 +672,8 @@ class ClipboardManager:
                         except:
                             pass  # 静默处理文件删除错误
             
-            self.items.clear()
+            # 只保留收藏的项目
+            self.items = [item for item in self.items if item.favorite]
             self._save_data()
             return True
         except Exception as e:

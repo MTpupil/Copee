@@ -119,11 +119,9 @@ class ClipboardAPI:
             # 静默处理错误，不输出详细信息
             pass
     
-
-            
-    def delete_item(self, index: int) -> str:
+    def copy_text_only(self, index: int) -> str:
         """
-        删除指定项目
+        仅复制纯文本内容（去除格式）
         
         Args:
             index: 项目索引
@@ -132,15 +130,172 @@ class ClipboardAPI:
             str: JSON格式的操作结果
         """
         try:
-            success = self.clipboard_manager.delete_item(index)
+            # 获取项目
+            items = self.clipboard_manager.get_items()
+            if index < 0 or index >= len(items):
+                return json.dumps({
+                    'success': False,
+                    'message': '索引超出范围'
+                }, ensure_ascii=False)
+            
+            item = items[index]
+            
+            # 只有文本类型才支持仅复制文本功能
+            if item['type'] != 'text':
+                return json.dumps({
+                    'success': False,
+                    'message': '只有文本类型支持此功能'
+                }, ensure_ascii=False)
+            
+            # 复制纯文本到剪贴板（去除可能的格式）
+            success = self.clipboard_manager.copy_text_only_to_clipboard(index)
+            if not success:
+                return json.dumps({
+                    'success': False,
+                    'message': '复制失败'
+                }, ensure_ascii=False)
+            
+            # 隐藏窗口并自动粘贴
+            if self.hide_window_callback:
+                try:
+                    self.hide_window_callback()
+                    time.sleep(0.1)
+                except Exception:
+                    pass
+            
+            self._auto_paste()
+            
             return json.dumps({
-                'success': success,
-                'message': '删除成功' if success else '删除失败'
+                'success': True,
+                'message': '已复制纯文本'
             }, ensure_ascii=False)
+            
         except Exception as e:
             return json.dumps({
                 'success': False,
-                'message': f'删除失败: {str(e)}'
+                'message': f'操作失败: {str(e)}'
+            }, ensure_ascii=False)
+    
+    def toggle_favorite(self, index: int) -> str:
+        """
+        切换项目的收藏状态
+        
+        Args:
+            index: 项目索引
+            
+        Returns:
+            str: JSON格式的操作结果
+        """
+        try:
+            # 获取项目
+            items = self.clipboard_manager.get_items()
+            if index < 0 or index >= len(items):
+                return json.dumps({
+                    'success': False,
+                    'message': '索引超出范围'
+                }, ensure_ascii=False)
+            
+            # 切换收藏状态
+            success, is_favorite = self.clipboard_manager.toggle_favorite(index)
+            if not success:
+                return json.dumps({
+                    'success': False,
+                    'message': '操作失败'
+                }, ensure_ascii=False)
+            
+            message = '已添加到收藏' if is_favorite else '已取消收藏'
+            return json.dumps({
+                'success': True,
+                'message': message
+            }, ensure_ascii=False)
+            
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'message': f'操作失败: {str(e)}'
+            }, ensure_ascii=False)
+            
+    def delete_item(self, index) -> str:
+        """
+        删除指定项目
+        
+        Args:
+            index: 项目索引（可能是字符串或整数）
+            
+        Returns:
+            str: JSON格式的操作结果
+        """
+        
+        
+        
+        try:
+            # 先检查索引是否有效
+            items = self.clipboard_manager.get_items()
+            
+            
+            # 检查索引是否为None或无效
+            if index is None:
+                
+                return json.dumps({
+                    'success': False,
+                    'message': '无效的索引参数: null (类型: object)'
+                }, ensure_ascii=False)
+            
+            # 尝试将索引转换为整数（处理pywebview传递字符串的情况）
+            
+            try:
+                original_index = index
+                index = int(index)
+                
+            except (ValueError, TypeError) as e:
+                
+                return json.dumps({
+                    'success': False,
+                    'message': f'无效的索引参数: {index} (类型: {type(index).__name__})'
+                }, ensure_ascii=False)
+            
+            # 检查索引范围
+            
+            if index < 0 or index >= len(items):
+                
+                return json.dumps({
+                    'success': False,
+                    'message': f'索引超出范围: {index}，当前共有 {len(items)} 个项目'
+                }, ensure_ascii=False)
+            
+            # 获取要删除的项目信息
+            item_to_delete = items[index]
+            item_type = item_to_delete.get('type', 'unknown')
+            
+            
+            # 执行删除操作
+            
+            success = self.clipboard_manager.delete_item(index)
+            
+            
+            if success:
+                
+                
+                return json.dumps({
+                    'success': True,
+                    'message': f'成功删除{item_type}项目'
+                }, ensure_ascii=False)
+            else:
+                
+                
+                return json.dumps({
+                    'success': False,
+                    'message': f'删除{item_type}项目失败，请检查文件权限或重试'
+                }, ensure_ascii=False)
+                
+        except Exception as e:
+            
+            import traceback
+            
+            
+            return json.dumps({
+                'success': False,
+                'message': f'删除操作异常: {type(e).__name__}: {str(e)}'
             }, ensure_ascii=False)
             
     def clear_all_items(self) -> str:

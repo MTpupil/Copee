@@ -20,6 +20,15 @@
                 <button class="btn btn-icon" id="searchBtn" title="搜索">
                     <i class="fas fa-search"></i>
                 </button>
+                <button class="btn btn-icon" id="favoriteBtn" title="收藏">
+                    <i class="fas fa-star"></i>
+                </button>
+                <button class="btn btn-icon" id="textFilterBtn" title="仅显示文本">
+                    <i class="fas fa-font"></i>
+                </button>
+                <button class="btn btn-icon" id="imageFilterBtn" title="仅显示图片">
+                    <i class="fas fa-image"></i>
+                </button>
                 <button class="btn btn-icon" id="clearBtn" title="清空">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -52,22 +61,7 @@
         </div>
     </div>
     
-    <!-- 右键菜单 -->
-    <div class="context-menu" id="contextMenu">
-        <div class="context-menu-item" data-action="copy">
-            <i class="fas fa-copy"></i>
-            <span>复制</span>
-        </div>
-        <div class="context-menu-item" data-action="delete">
-            <i class="fas fa-trash"></i>
-            <span>删除</span>
-        </div>
-        <div class="context-menu-divider"></div>
-        <div class="context-menu-item" data-action="copyText">
-            <i class="fas fa-font"></i>
-            <span>仅复制文本</span>
-        </div>
-    </div>
+
     
     <!-- 确认对话框 -->
     <div class="modal-overlay" id="modalOverlay">
