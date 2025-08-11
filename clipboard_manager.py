@@ -571,16 +571,34 @@ class ClipboardManager:
                         
                         # 移除或替换其他可能有问题的控制字符
                         import re
-                        # 保留常见的控制字符（换行、制表符等）, 移除其他控制字符
-                        text_content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text_content)
+                        # 只移除真正有害的控制字符：NULL、响铃、退格等
+                        # 保留制表符(\t)、换行符(\n)、回车符(\r)和大部分其他字符
+                        text_content = re.sub(r'[\x00-\x08\x0e-\x1f\x7f]', '', text_content)
+                        # 保留Unicode符号如↵(U+21B5)等，这些对用户是有意义的
                         
                     except Exception as encoding_error:
-                        pass  # 静默处理文本编码错误
+                        # 如果文本处理失败，记录错误但继续尝试使用原始内容
+                        print(f"文本编码处理警告: {encoding_error}")
                         # 如果处理失败, 尝试使用原始内容
                         text_content = str(item.content)
                     
                     # 设置文本内容到剪贴板
-                    win32clipboard.SetClipboardText(text_content)
+                    try:
+                        # 使用Unicode格式设置剪贴板文本，避免mbcs编码问题
+                        win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, text_content)
+                        print(f"成功复制文本，长度: {len(text_content)} 字符")
+                    except Exception as clipboard_error:
+                        print(f"SetClipboardData失败: {clipboard_error}")
+                        print(f"文本内容预览: {repr(text_content[:100])}...")
+                        # 如果Unicode方式失败，尝试移除有问题的字符后用标准方式
+                        try:
+                            # 移除无法编码的字符
+                            safe_text = text_content.encode('mbcs', errors='ignore').decode('mbcs')
+                            win32clipboard.SetClipboardText(safe_text)
+                            print("使用安全文本模式复制成功")
+                        except Exception as fallback_error:
+                            print(f"备用复制方式也失败: {fallback_error}")
+                            raise clipboard_error
                     
                 elif item.item_type == 'image':
                     # 处理图片内容 - 从文件读取
@@ -628,7 +646,9 @@ class ClipboardManager:
                 win32clipboard.CloseClipboard()
             except:
                 pass
-            pass  # 静默处理剪贴板复制错误
+            # 记录复制失败的详细错误信息，便于调试
+            print(f"剪贴板复制失败: {str(e)}")
+            print(f"项目索引: {index}, 项目类型: {item.item_type if 'item' in locals() else 'unknown'}")
             
         return False
         

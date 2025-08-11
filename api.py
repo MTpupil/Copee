@@ -69,9 +69,17 @@ class ClipboardAPI:
             # 复制内容到剪贴板
             success = self.clipboard_manager.copy_item_to_clipboard(index)
             if not success:
+                # 获取项目信息用于错误诊断
+                items = self.clipboard_manager.get_items()
+                item_info = "未知项目"
+                if 0 <= index < len(items):
+                    item = items[index]
+                    content_preview = item.get('content', '')[:50] + ('...' if len(item.get('content', '')) > 50 else '')
+                    item_info = f"类型: {item.get('type', 'unknown')}, 内容预览: {content_preview}"
+                
                 return json.dumps({
                     'success': False,
-                    'message': '复制失败'
+                    'message': f'复制失败 - {item_info}'
                 }, ensure_ascii=False)
             
             # 隐藏窗口但不改变焦点
@@ -322,14 +330,13 @@ class ClipboardAPI:
                 'message': f'清空失败: {str(e)}'
             }, ensure_ascii=False)
             
-    def search_items(self, keyword: str, search_type: str = 'normal', time_filter: str = None) -> str:
+    def search_items(self, keyword: str, search_type: str = 'normal') -> str:
         """
-        搜索剪贴板项目（支持普通搜索、正则表达式搜索和时间筛选）
+        搜索剪贴板项目（支持普通搜索和正则表达式搜索）
         
         Args:
             keyword: 搜索关键词
             search_type: 搜索类型 ('normal', 'regex')
-            time_filter: 时间筛选 ('today', 'yesterday', 'week', 'month', None)
             
         Returns:
             str: JSON格式的搜索结果
@@ -337,16 +344,12 @@ class ClipboardAPI:
         try:
             all_items = self.clipboard_manager.get_items()
             
-            # 首先根据时间筛选
-            if time_filter:
-                all_items = self._filter_by_time(all_items, time_filter)
-            
-            # 如果没有关键词，直接返回时间筛选结果
+            # 如果没有关键词，返回所有项目
             if not keyword.strip():
                 return json.dumps({
                     'success': True,
                     'data': all_items,
-                    'message': f'找到 {len(all_items)} 个匹配项目'
+                    'message': f'显示所有 {len(all_items)} 个项目'
                 }, ensure_ascii=False)
             
             # 根据搜索类型进行内容筛选
@@ -383,49 +386,7 @@ class ClipboardAPI:
                 'message': f'搜索失败: {str(e)}'
             }, ensure_ascii=False)
     
-    def _filter_by_time(self, items: List[Dict], time_filter: str) -> List[Dict]:
-        """
-        根据时间筛选项目
-        
-        Args:
-            items: 项目列表
-            time_filter: 时间筛选类型
-            
-        Returns:
-            List[Dict]: 筛选后的项目列表
-        """
-        now = datetime.now()
-        filtered_items = []
-        
-        for item in items:
-            try:
-                # 解析项目时间戳
-                item_time = datetime.fromisoformat(item['timestamp'])
-                
-                if time_filter == 'today':
-                    # 今天
-                    if item_time.date() == now.date():
-                        filtered_items.append(item)
-                elif time_filter == 'yesterday':
-                    # 昨天
-                    yesterday = now - timedelta(days=1)
-                    if item_time.date() == yesterday.date():
-                        filtered_items.append(item)
-                elif time_filter == 'week':
-                    # 最近一周
-                    week_ago = now - timedelta(days=7)
-                    if item_time >= week_ago:
-                        filtered_items.append(item)
-                elif time_filter == 'month':
-                    # 最近一个月
-                    month_ago = now - timedelta(days=30)
-                    if item_time >= month_ago:
-                        filtered_items.append(item)
-            except (ValueError, KeyError):
-                # 如果时间戳解析失败，跳过该项目
-                continue
-                
-        return filtered_items
+    # 已移除时间筛选功能 - _filter_by_time方法
     
     def _normal_match_item(self, item: Dict, keyword: str) -> bool:
         """

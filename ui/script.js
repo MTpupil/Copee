@@ -13,7 +13,7 @@ class ModernClipboardUI {
         this.isFavoriteMode = false; // 收藏模式标志
         this.filterType = null; // 类型筛选：'text', 'image', null
         this.searchType = 'normal'; // 搜索类型：'normal', 'regex'
-        this.timeFilter = null; // 时间筛选：'today', 'yesterday', 'week', 'month', null
+        // 已移除时间筛选功能
         
         // 设置相关属性
         this.settings = {
@@ -62,15 +62,12 @@ class ModernClipboardUI {
         this.searchInput = document.getElementById('searchInput');
         this.searchClose = document.getElementById('searchClose');
         
-        // 高级搜索选项
-        this.searchOptions = document.getElementById('searchOptions');
-        this.normalSearchBtn = document.getElementById('normalSearchBtn');
-        this.regexSearchBtn = document.getElementById('regexSearchBtn');
-        this.allTimeBtn = document.getElementById('allTimeBtn');
-        this.todayBtn = document.getElementById('todayBtn');
-        this.yesterdayBtn = document.getElementById('yesterdayBtn');
-        this.weekBtn = document.getElementById('weekBtn');
-        this.monthBtn = document.getElementById('monthBtn');
+        // 搜索模式切换
+        this.searchModeToggle = document.getElementById('searchModeToggle');
+        this.searchModeIcon = document.getElementById('searchModeIcon');
+        
+        // 正则错误提示
+        this.regexError = document.getElementById('regexError');
         
         // 主要内容
         this.clipboardList = document.getElementById('clipboardList');
@@ -123,14 +120,8 @@ class ModernClipboardUI {
         this.searchInput.addEventListener('keydown', (e) => this.handleSearchKeydown(e));
         this.searchClose.addEventListener('click', () => this.closeSearch());
         
-        // 高级搜索选项事件
-        this.normalSearchBtn.addEventListener('click', () => this.setSearchType('normal'));
-        this.regexSearchBtn.addEventListener('click', () => this.setSearchType('regex'));
-        this.allTimeBtn.addEventListener('click', () => this.setTimeFilter(null));
-        this.todayBtn.addEventListener('click', () => this.setTimeFilter('today'));
-        this.yesterdayBtn.addEventListener('click', () => this.setTimeFilter('yesterday'));
-        this.weekBtn.addEventListener('click', () => this.setTimeFilter('week'));
-        this.monthBtn.addEventListener('click', () => this.setTimeFilter('month'));
+        // 搜索模式切换事件
+        this.searchModeToggle.addEventListener('click', () => this.toggleSearchMode());
         
         // 设置页面事件
         this.settingsClose.addEventListener('click', () => this.closeSettingsWithSave());
@@ -662,23 +653,56 @@ class ModernClipboardUI {
      */
     async searchItems(keyword) {
         try {
-            const response = await pywebview.api.search_items(keyword, this.searchType, this.timeFilter);
+            // 移除时间筛选参数，只传递关键词和搜索类型
+            const response = await pywebview.api.search_items(keyword, this.searchType);
             const result = JSON.parse(response);
             
             if (result.success) {
                 this.filteredItems = result.data;
                 this.renderClipboardList();
                 
+                // 隐藏正则错误提示
+                this.hideRegexError();
+                
                 // 显示搜索结果提示
-                if (keyword.trim() || this.timeFilter) {
+                if (keyword.trim()) {
                     this.showNotification(result.message, 'info');
                 }
             } else {
+                // 如果是正则错误，显示在输入框下方而不是弹窗
+                if (this.searchType === 'regex' && result.message.includes('正则表达式错误')) {
+                    this.showRegexError(result.message);
+                    return; // 不显示弹窗
+                }
                 throw new Error(result.message);
             }
         } catch (error) {
             console.error('搜索失败:', error);
+            // 如果是正则错误，显示在输入框下方而不是弹窗
+            if (this.searchType === 'regex' && error.message.includes('正则表达式错误')) {
+                this.showRegexError(error.message);
+                return; // 不显示弹窗
+            }
             this.showNotification(error.message || '搜索失败', 'error');
+        }
+    }
+    
+    /**
+     * 显示正则表达式错误提示
+     */
+    showRegexError(message) {
+        if (this.regexError) {
+            this.regexError.textContent = message;
+            this.regexError.style.display = 'block';
+        }
+    }
+    
+    /**
+     * 隐藏正则表达式错误提示
+     */
+    hideRegexError() {
+        if (this.regexError) {
+            this.regexError.style.display = 'none';
         }
     }
     
@@ -714,18 +738,15 @@ class ModernClipboardUI {
         
         // 重置搜索选项
         this.searchType = 'normal';
-        this.timeFilter = null;
         
-        // 重置按钮状态
-        document.querySelectorAll('.search-mode-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        this.normalSearchBtn.classList.add('active');
+        // 重置搜索模式切换按钮状态
+        if (this.searchModeToggle) {
+            this.searchModeToggle.classList.remove('regex-mode');
+            this.searchModeIcon.textContent = '普';
+        }
         
-        document.querySelectorAll('.time-filter-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        this.allTimeBtn.classList.add('active');
+        // 隐藏正则错误提示
+        this.hideRegexError();
         
         // 重置搜索框提示文字
         this.searchInput.placeholder = '搜索剪贴板内容...';
@@ -746,55 +767,31 @@ class ModernClipboardUI {
     }
     
     /**
-     * 设置搜索类型
+     * 切换搜索模式
      */
-    setSearchType(type) {
-        this.searchType = type;
+    toggleSearchMode() {
+        // 隐藏之前的正则错误提示
+        this.hideRegexError();
         
-        // 更新按钮状态
-        document.querySelectorAll('.search-mode-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        if (type === 'normal') {
-            this.normalSearchBtn.classList.add('active');
-            this.searchInput.placeholder = '搜索剪贴板内容...';
-        } else if (type === 'regex') {
-            this.regexSearchBtn.classList.add('active');
+        // 在普通搜索和正则搜索之间切换
+        if (this.searchType === 'normal') {
+            this.searchType = 'regex';
+            this.searchModeIcon.className = 'fas fa-code';
+            this.searchModeToggle.classList.add('regex-mode');
+            this.searchModeToggle.title = '正则搜索模式';
             this.searchInput.placeholder = '输入正则表达式...';
+        } else {
+            this.searchType = 'normal';
+            this.searchModeIcon.className = 'fas fa-font';
+            this.searchModeToggle.classList.remove('regex-mode');
+            this.searchModeToggle.title = '普通搜索模式';
+            this.searchInput.placeholder = '搜索剪贴板内容...';
         }
         
         // 如果有搜索内容，重新搜索
-        if (this.searchInput.value.trim() || this.timeFilter) {
+        if (this.searchInput.value.trim()) {
             this.searchItems(this.searchInput.value);
         }
-    }
-    
-    /**
-     * 设置时间筛选
-     */
-    setTimeFilter(filter) {
-        this.timeFilter = filter;
-        
-        // 更新按钮状态
-        document.querySelectorAll('.time-filter-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        if (filter === null) {
-            this.allTimeBtn.classList.add('active');
-        } else if (filter === 'today') {
-            this.todayBtn.classList.add('active');
-        } else if (filter === 'yesterday') {
-            this.yesterdayBtn.classList.add('active');
-        } else if (filter === 'week') {
-            this.weekBtn.classList.add('active');
-        } else if (filter === 'month') {
-            this.monthBtn.classList.add('active');
-        }
-        
-        // 重新搜索
-        this.searchItems(this.searchInput.value);
     }
     
     /**

@@ -39,51 +39,20 @@
             </div>
         </div>
         
-        <!-- 搜索框 -->
+        <!-- 搜索框 - 精简版 -->
         <div class="search-container" id="searchContainer">
             <div class="search-input-wrapper">
-                <i class="fas fa-search search-icon"></i>
+                <!-- 搜索模式切换图标 -->
+                <button class="search-mode-toggle" id="searchModeToggle" title="切换搜索模式">
+                    <i class="fas fa-font" id="searchModeIcon"></i>
+                </button>
                 <input type="text" id="searchInput" placeholder="搜索剪贴板内容..." class="search-input">
                 <button class="btn btn-icon search-close" id="searchClose">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            
-            <!-- 高级搜索选项 -->
-            <div class="search-options" id="searchOptions">
-                <div class="search-option-group">
-                    <label class="search-option-label">搜索模式:</label>
-                    <div class="search-mode-buttons">
-                        <button class="search-mode-btn active" id="normalSearchBtn" data-mode="normal">
-                            <i class="fas fa-font"></i> 普通
-                        </button>
-                        <button class="search-mode-btn" id="regexSearchBtn" data-mode="regex">
-                            <i class="fas fa-code"></i> 正则
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="search-option-group">
-                    <label class="search-option-label">时间筛选:</label>
-                    <div class="time-filter-buttons">
-                        <button class="time-filter-btn active" id="allTimeBtn" data-filter="">
-                            <i class="fas fa-infinity"></i> 全部
-                        </button>
-                        <button class="time-filter-btn" id="todayBtn" data-filter="today">
-                            <i class="fas fa-calendar-day"></i> 今天
-                        </button>
-                        <button class="time-filter-btn" id="yesterdayBtn" data-filter="yesterday">
-                            <i class="fas fa-calendar-minus"></i> 昨天
-                        </button>
-                        <button class="time-filter-btn" id="weekBtn" data-filter="week">
-                            <i class="fas fa-calendar-week"></i> 本周
-                        </button>
-                        <button class="time-filter-btn" id="monthBtn" data-filter="month">
-                            <i class="fas fa-calendar-alt"></i> 本月
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <!-- 正则表达式错误提示 -->
+            <div class="regex-error" id="regexError" style="display: none;"></div>
         </div>
         
         <!-- 剪贴板项目列表 -->
