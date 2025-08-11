@@ -118,6 +118,12 @@ class ClipboardManager:
         self._load_data()
         self._cleanup_orphaned_images()  # 清理孤立的图片文件
         
+        # 程序启动时执行一次自动删除检查
+        self._startup_auto_delete_check()
+        
+        # 启动定时自动删除检查
+        self._start_auto_delete_timer()
+        
         # 初始化当前剪贴板状态, 避免启动时自动保存当前剪贴板内容
         self._init_clipboard_state()
         
@@ -304,6 +310,92 @@ class ClipboardManager:
             print(f"错误堆栈: {traceback.format_exc()}")
             return False
     
+    def _startup_auto_delete_check(self):
+        """
+        程序启动时执行自动删除检查
+        检查当前设置并清理过期记录
+        """
+        try:
+            # 获取当前设置
+            settings = self.get_settings()
+            auto_delete_settings = settings.get('autoDelete', {})
+            
+            # 如果启用了自动删除，执行清理
+            if auto_delete_settings.get('enabled', False):
+                self._apply_auto_delete_settings(auto_delete_settings)
+        except Exception as e:
+            # 静默处理启动时的自动删除错误
+            pass
+    
+    def _start_auto_delete_timer(self):
+        """
+        启动定时自动删除检查
+        每小时检查一次过期记录
+        """
+        import threading
+        
+        def timer_check():
+            while True:
+                try:
+                    # 每小时检查一次（3600秒）
+                    import time
+                    time.sleep(3600)
+                    
+                    # 获取当前设置
+                    settings = self.get_settings()
+                    auto_delete_settings = settings.get('autoDelete', {})
+                    
+                    # 如果启用了按时间删除，执行检查
+                    if (auto_delete_settings.get('enabled', False) and 
+                        auto_delete_settings.get('byTime', False)):
+                        self._apply_auto_delete_settings(auto_delete_settings)
+                        
+                except Exception as e:
+                    # 静默处理定时检查错误
+                    pass
+        
+        # 启动后台定时器线程
+        timer_thread = threading.Thread(target=timer_check, daemon=True)
+        timer_thread.start()
+    
+    def _check_time_based_auto_delete(self):
+        """
+        检查是否需要按时间自动删除
+        在新增记录时调用，提供更及时的清理
+        为了避免频繁检查，使用简化的检查逻辑
+        """
+        try:
+            # 获取当前设置
+            settings = self.get_settings()
+            auto_delete_settings = settings.get('autoDelete', {})
+            
+            # 只有启用了按时间删除才进行检查
+            if (auto_delete_settings.get('enabled', False) and 
+                auto_delete_settings.get('byTime', False)):
+                
+                days = auto_delete_settings.get('days', 7)
+                cutoff_time = datetime.now() - timedelta(days=days)
+                
+                # 简化检查：只检查列表末尾的几个项目
+                # 因为新项目总是添加到前面，过期的项目通常在后面
+                items_to_delete = []
+                check_count = min(10, len(self.items))  # 只检查最后10个项目
+                
+                for i in range(len(self.items) - check_count, len(self.items)):
+                    if i >= 0 and i < len(self.items):
+                        item = self.items[i]
+                        # 收藏记录不删除
+                        if not item.favorite and item.timestamp < cutoff_time:
+                            items_to_delete.append(i)
+                
+                # 执行删除（从后往前删除，避免索引变化）
+                for index in sorted(items_to_delete, reverse=True):
+                    self.delete_item(index)
+                    
+        except Exception as e:
+            # 静默处理检查错误
+            pass
+    
     def _apply_auto_delete_settings(self, auto_delete_settings: Dict[str, Any]):
         """
         应用自动删除设置
@@ -451,6 +543,9 @@ class ClipboardManager:
         # 限制最大数量
         if len(self.items) > self.max_items:
             self.items = self.items[:self.max_items]
+        
+        # 检查是否需要按时间自动删除
+        self._check_time_based_auto_delete()
             
         # 保存数据
         self._save_data()
@@ -521,6 +616,9 @@ class ClipboardManager:
                                 pass
                 
                 self.items = self.items[:self.max_items]
+            
+            # 检查是否需要按时间自动删除
+            self._check_time_based_auto_delete()
                 
             self._save_data()
         except Exception as e:
