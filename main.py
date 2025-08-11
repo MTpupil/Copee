@@ -13,6 +13,7 @@ import webview
 import threading
 import time
 import json
+import os
 
 import win32gui
 import win32con
@@ -77,23 +78,38 @@ class ModernClipboardApp:
         """
         创建系统托盘图标
         """
-        # 创建一个简单的剪贴板图标
+        # 使用自定义logo作为托盘图标
         def create_icon_image():
-            # 创建32x32的图标
-            image = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(image)
-            
-            # 绘制剪贴板图标
-            # 外框
-            draw.rectangle([4, 2, 28, 30], outline='#667eea', width=2, fill='white')
-            # 夹子
-            draw.rectangle([10, 0, 22, 6], outline='#667eea', width=2, fill='#667eea')
-            # 内容线条
-            draw.line([8, 10, 24, 10], fill='#333', width=1)
-            draw.line([8, 14, 24, 14], fill='#333', width=1)
-            draw.line([8, 18, 20, 18], fill='#333', width=1)
-            
-            return image
+            try:
+                # 尝试加载logo.jpg文件
+                logo_path = os.path.join(os.path.dirname(__file__), 'ui', 'logo.jpg')
+                if os.path.exists(logo_path):
+                    # 加载并调整logo图片大小
+                    image = Image.open(logo_path)
+                    # 转换为RGBA模式以支持透明度
+                    image = image.convert('RGBA')
+                    # 调整大小为32x32像素
+                    image = image.resize((32, 32), Image.Resampling.LANCZOS)
+                    return image
+                else:
+                    # 如果logo文件不存在，使用默认的剪贴板图标
+                    raise FileNotFoundError("Logo file not found")
+            except Exception:
+                # 创建默认的剪贴板图标作为备用
+                image = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(image)
+                
+                # 绘制剪贴板图标
+                # 外框
+                draw.rectangle([4, 2, 28, 30], outline='#667eea', width=2, fill='white')
+                # 夹子
+                draw.rectangle([10, 0, 22, 6], outline='#667eea', width=2, fill='#667eea')
+                # 内容线条
+                draw.line([8, 10, 24, 10], fill='#333', width=1)
+                draw.line([8, 14, 24, 14], fill='#333', width=1)
+                draw.line([8, 18, 20, 18], fill='#333', width=1)
+                
+                return image
         
         # 创建托盘菜单（移除系统剪贴板历史相关选项）
         menu = pystray.Menu(

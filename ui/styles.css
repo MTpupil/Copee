@@ -49,6 +49,14 @@ body {
     color: #333;
 }
 
+/* 应用程序logo样式 */
+.app-logo {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    border-radius: 3px;
+}
+
 .header-title i {
     font-size: 16px;
     color: #667eea;
@@ -562,6 +570,14 @@ body {
     margin-bottom: 16px;
     font-size: 20px;
     color: #667eea;
+}
+
+/* 空状态页面logo样式 */
+.empty-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    opacity: 0.8;
 }
 
 .empty-text h3 {
