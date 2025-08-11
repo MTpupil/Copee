@@ -3,3 +3,7 @@ __pycache__/*
 clipboard_data.json
 images/
 images/*
+build/
+build/*
+dist/
+dist/*

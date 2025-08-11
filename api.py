@@ -8,6 +8,9 @@ API接口模块
 import json
 import time
 import re
+import os
+import sys
+import winreg
 from datetime import datetime, timedelta
 import win32api
 import win32con
@@ -656,4 +659,114 @@ class ClipboardAPI:
             return json.dumps({
                 'success': False,
                 'message': f'更新备注失败: {str(e)}'
+            }, ensure_ascii=False)
+    
+    def set_auto_start(self, enabled: bool) -> str:
+        """
+        设置开机启动
+        
+        Args:
+            enabled: 是否启用开机启动
+        
+        Returns:
+            str: JSON格式的操作结果
+        """
+        try:
+            # 获取当前程序的路径
+            if getattr(sys, 'frozen', False):
+                # 如果是打包后的exe文件
+                app_path = sys.executable
+            else:
+                # 如果是Python脚本
+                app_path = os.path.abspath(sys.argv[0])
+            
+            # 注册表路径
+            reg_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+            app_name = "Copee剪贴板管理器"
+            
+            if enabled:
+                # 启用开机启动
+                try:
+                    # 打开注册表项
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_SET_VALUE)
+                    # 设置注册表值
+                    winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, app_path)
+                    winreg.CloseKey(key)
+                    
+                    return json.dumps({
+                        'success': True,
+                        'message': '开机启动已启用'
+                    }, ensure_ascii=False)
+                except Exception as e:
+                    return json.dumps({
+                        'success': False,
+                        'message': f'启用开机启动失败: {str(e)}'
+                    }, ensure_ascii=False)
+            else:
+                # 禁用开机启动
+                try:
+                    # 打开注册表项
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_SET_VALUE)
+                    # 删除注册表值
+                    try:
+                        winreg.DeleteValue(key, app_name)
+                    except FileNotFoundError:
+                        # 如果注册表项不存在，也算成功
+                        pass
+                    winreg.CloseKey(key)
+                    
+                    return json.dumps({
+                        'success': True,
+                        'message': '开机启动已禁用'
+                    }, ensure_ascii=False)
+                except Exception as e:
+                    return json.dumps({
+                        'success': False,
+                        'message': f'禁用开机启动失败: {str(e)}'
+                    }, ensure_ascii=False)
+                    
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'message': f'设置开机启动失败: {str(e)}'
+            }, ensure_ascii=False)
+    
+    def get_auto_start_status(self) -> str:
+        """
+        获取开机启动状态
+        
+        Returns:
+            str: JSON格式的开机启动状态
+        """
+        try:
+            # 注册表路径
+            reg_path = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+            app_name = "Copee剪贴板管理器"
+            
+            try:
+                # 打开注册表项
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_READ)
+                # 尝试读取注册表值
+                value, _ = winreg.QueryValueEx(key, app_name)
+                winreg.CloseKey(key)
+                
+                # 如果能读取到值，说明开机启动已启用
+                return json.dumps({
+                    'success': True,
+                    'enabled': True,
+                    'message': '开机启动已启用'
+                }, ensure_ascii=False)
+            except FileNotFoundError:
+                # 如果注册表项不存在，说明开机启动未启用
+                return json.dumps({
+                    'success': True,
+                    'enabled': False,
+                    'message': '开机启动未启用'
+                }, ensure_ascii=False)
+                
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'enabled': False,
+                'message': f'获取开机启动状态失败: {str(e)}'
             }, ensure_ascii=False)

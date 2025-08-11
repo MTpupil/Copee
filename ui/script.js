@@ -23,6 +23,9 @@ class ModernClipboardUI {
                 byCount: false,
                 days: 7,
                 maxItems: 100
+            },
+            autoStart: {
+                enabled: false
             }
         };
         
@@ -98,6 +101,9 @@ class ModernClipboardUI {
         this.maxItems = document.getElementById('maxItems');
         this.timeDeleteGroup = document.getElementById('timeDeleteGroup');
         this.countDeleteGroup = document.getElementById('countDeleteGroup');
+        
+        // 开机启动设置
+        this.autoStartEnabled = document.getElementById('autoStartEnabled');
     }
     
     /**
@@ -149,6 +155,11 @@ class ModernClipboardUI {
         });
         this.deleteByCount.addEventListener('change', () => {
             this.toggleCountDeleteGroup();
+        });
+        
+        // 开机启动设置事件
+        this.autoStartEnabled.addEventListener('change', async () => {
+            await this.toggleAutoStart();
         });
         
         // 移除自动保存的input事件监听器
@@ -1397,6 +1408,22 @@ class ModernClipboardUI {
         this.deleteByCount.checked = this.settings.autoDelete.byCount;
         this.deleteDays.value = this.settings.autoDelete.days;
         this.maxItems.value = this.settings.autoDelete.maxItems;
+        
+        // 获取并更新开机启动状态
+        try {
+            const autoStartResponse = await pywebview.api.get_auto_start_status();
+            const autoStartResult = JSON.parse(autoStartResponse);
+            if (autoStartResult.success) {
+                this.settings.autoStart.enabled = autoStartResult.enabled;
+                this.autoStartEnabled.checked = autoStartResult.enabled;
+            } else {
+                // 如果获取失败，使用默认值
+                this.autoStartEnabled.checked = this.settings.autoStart.enabled;
+            }
+        } catch (error) {
+            console.log('获取开机启动状态失败，使用默认设置:', error);
+            this.autoStartEnabled.checked = this.settings.autoStart.enabled;
+        }
     }
     
     /**
@@ -1417,6 +1444,9 @@ class ModernClipboardUI {
             this.settings.autoDelete.byCount = this.deleteByCount.checked;
             this.settings.autoDelete.days = parseInt(this.deleteDays.value) || 7;
             this.settings.autoDelete.maxItems = parseInt(this.maxItems.value) || 100;
+            
+            // 获取开机启动设置
+            this.settings.autoStart.enabled = this.autoStartEnabled.checked;
             
             console.log('准备保存设置:', this.settings); // 调试日志
             
@@ -1535,6 +1565,37 @@ class ModernClipboardUI {
             group.style.display = 'block';
         } else {
             group.style.display = 'none';
+        }
+    }
+    
+    /**
+     * 切换开机启动设置
+     */
+    async toggleAutoStart() {
+        try {
+            const enabled = this.autoStartEnabled.checked;
+            
+            // 调用后端API设置开机启动
+            const response = await pywebview.api.set_auto_start(enabled);
+            const result = JSON.parse(response);
+            
+            if (result.success) {
+                // 更新设置并保存
+                this.settings.autoStart.enabled = enabled;
+                await this.autoSaveSettings();
+                
+                const message = enabled ? '开机启动已启用' : '开机启动已禁用';
+                this.showNotification(message, 'success');
+            } else {
+                // 如果设置失败，恢复复选框状态
+                this.autoStartEnabled.checked = !enabled;
+                this.showNotification('设置开机启动失败: ' + result.message, 'error');
+            }
+        } catch (error) {
+            // 如果出现异常，恢复复选框状态
+            this.autoStartEnabled.checked = !this.autoStartEnabled.checked;
+            console.error('设置开机启动失败:', error);
+            this.showNotification('设置开机启动失败: ' + error.message, 'error');
         }
     }
     

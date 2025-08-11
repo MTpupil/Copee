@@ -17,6 +17,8 @@
 - **智能去重**: 自动去除重复内容
 - **多种类型**: 支持文本、图片、文件等类型
 - **持久化存储**: 历史记录本地保存
+- **开机启动**: 支持设置开机自动启动
+- **系统托盘**: 最小化到系统托盘运行
 
 ### 🔍 搜索功能
 - **实时搜索**: 支持关键词实时搜索
@@ -195,6 +197,88 @@ A: 检查 `clipboard_data.json` 文件权限
 - 基础剪贴板管理功能
 - 现代化UI界面
 - 搜索和快捷键支持
+
+## 📦 打包部署
+
+### 环境要求
+- Python 3.7+
+- Windows 10/11
+- 已安装项目依赖包
+
+### 安装依赖
+```bash
+pip install -r requirements.txt
+```
+
+### 开发运行
+```bash
+python main.py
+```
+
+### 打包成exe
+
+#### 方法一：使用批处理文件（推荐）
+1. 双击运行 `build.bat` 文件
+2. 等待打包完成
+3. 在 `dist` 目录下找到生成的exe文件
+
+#### 方法二：使用Python脚本
+```bash
+python build.py
+```
+
+#### 方法三：手动使用PyInstaller
+```bash
+# 安装PyInstaller
+pip install pyinstaller
+
+# 打包命令
+pyinstaller --onefile --windowed --name="Copee剪贴板管理器" --add-data="ui;ui" --hidden-import=win32timezone --hidden-import=pystray._win32 --collect-submodules=pywebview main.py
+```
+
+### 打包说明
+- 生成的exe文件位于 `dist` 目录
+- 文件大小约为 20-30MB
+- 包含所有必要的依赖和资源文件
+- 可以在没有Python环境的Windows系统上运行
+
+## ⚙️ 开机启动设置
+
+### 通过程序设置（推荐）
+1. 运行程序后，点击设置按钮
+2. 在"启动设置"区域勾选"开机自动启动"
+3. 程序会自动添加到Windows启动项
+
+### 手动设置
+1. 按 `Win + R` 打开运行对话框
+2. 输入 `shell:startup` 并回车
+3. 将exe文件的快捷方式复制到打开的文件夹中
+
+### 注册表设置
+程序使用Windows注册表来管理开机启动：
+- 注册表路径：`HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`
+- 键名：`Copee剪贴板管理器`
+- 键值：程序exe文件的完整路径
+
+## 🚀 使用指南
+
+### 首次运行
+1. 运行exe文件或Python脚本
+2. 程序会最小化到系统托盘
+3. 使用 `Ctrl+Shift+V` 快捷键打开剪贴板管理器
+
+### 基本操作
+- **打开程序**: `Ctrl+Shift+V`
+- **搜索内容**: `Ctrl+F`
+- **选择项目**: 上下箭头键
+- **复制项目**: `Enter` 键
+- **删除项目**: `Delete` 键
+- **隐藏窗口**: `Esc` 键
+
+### 设置功能
+- **自动删除**: 可设置按时间或数量自动清理历史记录
+- **开机启动**: 可设置程序开机自动启动
+- **快捷键**: 支持自定义快捷键（开发中）
 
 ## 贡献指南
 
