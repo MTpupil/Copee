@@ -16,6 +16,9 @@ keyboard>=1.13.0
 # 系统托盘功能
 pystray>=0.19.4
 
+# UI Automation支持（获取其他应用程序光标位置）
+comtypes>=1.1.0
+
 # JSON处理（Python内置，无需安装）
 # json
 

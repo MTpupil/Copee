@@ -360,6 +360,7 @@ body {
     display: flex;
     align-items: flex-start;
     flex: 1;
+    margin-right: 140px; /* 为按钮区域预留空间 */
 }
 
 .item-text {
@@ -400,14 +401,20 @@ body {
 
 .item-actions {
     display: flex;
-    gap: 4px;
+    gap: 3px;
     opacity: 0;
     visibility: hidden;
     transition: all 0.2s ease;
-    margin-left: 8px;
+    position: absolute;
+    top: 8px;
+    right: 8px;
     flex-shrink: 0;
-    align-items: flex-start;
-    padding-top: 2px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .clipboard-item:hover .item-actions {
@@ -416,24 +423,24 @@ body {
 }
 
 .action-btn {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     background: rgba(103, 126, 234, 0.1);
     color: #667eea;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 11px;
     transition: all 0.2s ease;
 }
 
 .action-btn:hover {
     background: rgba(103, 126, 234, 0.2);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(103, 126, 234, 0.2);
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(103, 126, 234, 0.2);
 }
 
 .action-btn.delete-btn {
@@ -443,7 +450,8 @@ body {
 
 .action-btn.delete-btn:hover {
     background: rgba(239, 68, 68, 0.2);
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
 }
 
 .action-btn .fa-star.favorited {
@@ -458,7 +466,8 @@ body {
 
 .action-btn.favorited:hover {
     background: rgba(251, 191, 36, 0.25);
-    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.3);
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
 }
 
 /* 头部按钮激活状态 */
@@ -630,6 +639,19 @@ body {
     padding: 16px 24px;
 }
 
+/* 备注模态框的主体区域 */
+.note-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* 备注模态框的头部和底部固定 */
+.note-modal .modal-header,
+.note-modal .modal-footer {
+    flex-shrink: 0;
+}
+
 .modal-body p {
     font-size: 14px;
     color: #666;
@@ -637,10 +659,11 @@ body {
 }
 
 .modal-footer {
-    padding: 16px 24px 20px;
+    padding: 20px 24px;
     display: flex;
-    gap: 12px;
-    justify-content: flex-end;
+    gap: 16px;
+    justify-content: center;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* 通知提示 */
@@ -1014,4 +1037,188 @@ body {
         rgba(255, 248, 235, 0.2) 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(255, 152, 0, 0.15);
+}
+
+/* 备注功能样式 */
+/* 备注按钮样式 */
+.action-btn.has-note {
+    background: rgba(255, 193, 7, 0.15);
+    color: #f39c12;
+}
+
+.action-btn.has-note:hover {
+    background: rgba(255, 193, 7, 0.25);
+    color: #e67e22;
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(255, 193, 7, 0.3);
+}
+
+/* 备注显示区域 */
+.item-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(255, 193, 7, 0.08);
+    border-radius: 6px;
+    border-left: 3px solid #f39c12;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.note-icon {
+    color: #f39c12;
+    font-size: 11px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.note-text {
+    color: #666;
+    word-break: break-word;
+    flex: 1;
+}
+
+/* 备注编辑模态框样式 */
+.note-modal {
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.note-preview {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(103, 126, 234, 0.05);
+    border-radius: 8px;
+    border-left: 3px solid #667eea;
+}
+
+.note-item-preview {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+    word-break: break-word;
+    max-height: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.note-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+.note-textarea {
+    width: 100%;
+    min-height: 100px;
+    max-height: 200px;
+    padding: 12px;
+    border: 2px solid rgba(103, 126, 234, 0.2);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.2s ease;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.note-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 0 3px rgba(103, 126, 234, 0.1);
+}
+
+.note-textarea::placeholder {
+    color: #999;
+}
+
+.note-char-count {
+    text-align: right;
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.note-char-count.over-limit {
+    color: #e74c3c;
+    font-weight: 500;
+}
+
+.note-char-count .current-count {
+    font-weight: 500;
+}
+
+/* 备注模态框按钮样式 */
+.note-cancel {
+    background: rgba(108, 117, 125, 0.1);
+    color: #6c757d;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    min-width: 80px;
+    transition: all 0.2s ease;
+}
+
+.note-cancel:hover {
+    background: rgba(108, 117, 125, 0.2);
+    color: #495057;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(108, 117, 125, 0.2);
+}
+
+.note-save {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    min-width: 80px;
+    transition: all 0.2s ease;
+}
+
+.note-save:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(103, 126, 234, 0.3);
+}
+
+.note-save:disabled {
+    background: rgba(108, 117, 125, 0.3);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.6;
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+    .note-modal {
+        width: 95%;
+        margin: 20px auto;
+    }
+    
+    .note-textarea {
+        min-height: 80px;
+    }
 }

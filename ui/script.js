@@ -347,6 +347,9 @@ class ModernClipboardUI {
                 </button>
                 <button class="action-btn ${isFavorite ? 'favorited' : ''}" data-action="favorite" title="${isFavorite ? '取消收藏' : '收藏'}">
                     <i class="fas fa-star ${isFavorite ? 'favorited' : ''}"></i>
+                </button>
+                <button class="action-btn ${item.note ? 'has-note' : ''}" data-action="note" title="${item.note ? '编辑备注' : '添加备注'}">
+                    <i class="fas fa-sticky-note"></i>
                 </button>`
         
         // 只有文本类型才显示"仅复制文本"按钮
@@ -363,11 +366,21 @@ class ModernClipboardUI {
                 </button>
             </div>`;
         
+        // 备注显示区域
+        let noteDisplay = '';
+        if (item.note && item.note.trim()) {
+            noteDisplay = `<div class="item-note">
+                <i class="fas fa-sticky-note note-icon"></i>
+                <span class="note-text">${this.escapeHtml(item.note)}</span>
+            </div>`;
+        }
+        
         return `
             <div class="clipboard-item ${isSelected} ${favoriteClass}" data-index="${index}">
                 <div class="item-content">
                     <div class="item-text">
                         <div class="item-preview">${preview}</div>
+                        ${noteDisplay}
                         <div class="item-meta">
                             <span class="item-time">${timeAgo}</span>
                         </div>
@@ -404,8 +417,6 @@ class ModernClipboardUI {
             item.addEventListener('dblclick', () => {
                 this.copyItem(index);
             });
-            
-
             
             // 动作按钮事件
             const actionBtns = item.querySelectorAll('.action-btn');
@@ -949,9 +960,147 @@ class ModernClipboardUI {
             case 'favorite':
                 this.toggleFavorite(index);
                 break;
+            case 'note':
+                this.showNoteEditor(index);
+                break;
             case 'delete':
                 this.showDeleteConfirm(index);
                 break;
+        }
+    }
+    
+    /**
+     * 显示备注编辑器
+     */
+    showNoteEditor(index) {
+        const item = this.clipboardItems[index];
+        if (!item) return;
+        
+        // 创建备注编辑模态框
+        const noteModal = document.createElement('div');
+        noteModal.className = 'modal-overlay';
+        noteModal.innerHTML = `
+            <div class="modal note-modal">
+                <div class="modal-header">
+                    <h3>编辑备注</h3>
+                    <button class="btn btn-icon modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="note-preview">
+                        <div class="note-item-preview">${this.escapeHtml(item.preview)}</div>
+                    </div>
+                    <div class="note-input-group">
+                        <label class="note-label">备注内容：</label>
+                        <textarea class="note-textarea" placeholder="请输入备注内容..." maxlength="200">${this.escapeHtml(item.note || '')}</textarea>
+                        <div class="note-char-count">
+                            <span class="current-count">${(item.note || '').length}</span>/200
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary note-cancel">取消</button>
+                    <button class="btn btn-primary note-save">保存</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(noteModal);
+        
+        // 显示模态框（添加active类）
+        setTimeout(() => {
+            noteModal.classList.add('active');
+        }, 10);
+        
+        // 获取元素
+        const textarea = noteModal.querySelector('.note-textarea');
+        const charCount = noteModal.querySelector('.current-count');
+        const closeBtn = noteModal.querySelector('.modal-close');
+        const cancelBtn = noteModal.querySelector('.note-cancel');
+        const saveBtn = noteModal.querySelector('.note-save');
+        
+        // 字符计数
+        textarea.addEventListener('input', () => {
+            const length = textarea.value.length;
+            charCount.textContent = length;
+            
+            // 超出限制时的样式
+            if (length > 200) {
+                charCount.parentElement.classList.add('over-limit');
+                saveBtn.disabled = true;
+            } else {
+                charCount.parentElement.classList.remove('over-limit');
+                saveBtn.disabled = false;
+            }
+        });
+        
+        // 关闭事件
+        const closeModal = () => {
+            noteModal.classList.remove('active');
+            setTimeout(() => {
+                if (document.body.contains(noteModal)) {
+                    document.body.removeChild(noteModal);
+                }
+            }, 300); // 等待动画完成
+        };
+        
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        
+        // 点击背景关闭
+        noteModal.addEventListener('click', (e) => {
+            if (e.target === noteModal) {
+                closeModal();
+            }
+        });
+        
+        // 保存事件
+        saveBtn.addEventListener('click', async () => {
+            const noteText = textarea.value.trim();
+            if (noteText.length <= 200) {
+                await this.updateItemNote(index, noteText);
+                closeModal();
+            }
+        });
+        
+        // 键盘事件
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            } else if (e.key === 'Enter' && e.ctrlKey) {
+                // Ctrl+Enter 保存
+                saveBtn.click();
+            }
+        });
+        
+        // 自动聚焦并选中文本
+        setTimeout(() => {
+            textarea.focus();
+            textarea.select();
+        }, 100);
+    }
+    
+    /**
+     * 更新项目备注
+     */
+    async updateItemNote(index, note) {
+        try {
+            const response = await pywebview.api.update_item_note(index, note);
+            const result = JSON.parse(response);
+            
+            if (result.success) {
+                // 更新本地数据
+                this.clipboardItems[index].note = note;
+                // 重新渲染列表
+                this.renderClipboardList();
+                this.showNotification('备注更新成功', 'success');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('更新备注失败:', error);
+            this.showNotification('更新备注失败', 'error');
         }
     }
     

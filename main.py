@@ -251,6 +251,131 @@ class ModernClipboardApp:
         import win32api
         return win32api.GetCursorPos()
     
+    def get_caret_position(self):
+        """
+        获取当前输入框光标位置
+        使用多种方法尝试获取系统级文本光标位置
+        
+        Returns:
+            tuple: (x, y) 坐标，如果获取失败则返回鼠标位置
+        """
+        # 方法1: 尝试使用UI Automation获取光标位置
+        try:
+            import comtypes.client
+            from comtypes.gen import UIAutomationClient
+            
+            # 创建UI Automation客户端
+            uia = comtypes.client.CreateObject("{ff48dba4-60ef-4201-aa87-54103eef594e}", interface=UIAutomationClient.IUIAutomation)
+            
+            # 获取当前焦点元素
+            focus_element = uia.GetFocusedElement()
+            if focus_element:
+                # 尝试获取文本模式
+                try:
+                    text_pattern = focus_element.GetCurrentPattern(UIAutomationClient.UIA_TextPatternId)
+                    if text_pattern:
+                        # 获取选择范围（光标位置）
+                        selection = text_pattern.GetSelection()
+                        if selection.Length > 0:
+                            # 获取光标位置的边界矩形
+                            range_obj = selection.GetElement(0)
+                            bounding_rect = range_obj.GetBoundingRectangles()
+                            if bounding_rect and len(bounding_rect) >= 4:
+                                # 返回光标位置（矩形左上角）
+                                return (int(bounding_rect[0]), int(bounding_rect[1]))
+                except Exception:
+                    pass
+                    
+                # 如果文本模式失败，尝试获取元素边界
+                try:
+                    rect = focus_element.CurrentBoundingRectangle
+                    if rect.right > rect.left and rect.bottom > rect.top:
+                        # 返回输入框左上角位置作为近似光标位置
+                        return (int(rect.left + 5), int(rect.top + 5))
+                except Exception:
+                    pass
+                    
+        except Exception:
+            pass
+            
+        # 方法2: 尝试使用传统的GetCaretPos方法（适用于某些应用）
+        try:
+            import win32gui
+            import win32api
+            
+            # 获取当前焦点窗口
+            focus_hwnd = win32gui.GetForegroundWindow()
+            if focus_hwnd:
+                # 获取焦点窗口中的线程ID
+                thread_id = win32gui.GetWindowThreadProcessId(focus_hwnd)[1]
+                current_thread_id = win32api.GetCurrentThreadId()
+                
+                # 附加到焦点窗口的线程
+                attached = False
+                if thread_id != current_thread_id:
+                    try:
+                        win32gui.AttachThreadInput(current_thread_id, thread_id, True)
+                        attached = True
+                    except Exception:
+                        pass
+                
+                try:
+                    # 获取光标信息
+                    caret_info = win32gui.GetCaretPos()
+                    if caret_info and caret_info != (0, 0):
+                        # 将相对坐标转换为屏幕坐标
+                        screen_pos = win32gui.ClientToScreen(focus_hwnd, caret_info)
+                        return screen_pos
+                except Exception:
+                    pass
+                finally:
+                    # 分离线程
+                    if attached:
+                        try:
+                            win32gui.AttachThreadInput(current_thread_id, thread_id, False)
+                        except Exception:
+                            pass
+                            
+        except Exception:
+            pass
+            
+        # 方法3: 使用IME相关API尝试获取输入法光标位置
+        try:
+            import win32gui
+            import win32api
+            
+            focus_hwnd = win32gui.GetForegroundWindow()
+            if focus_hwnd:
+                # 查找输入法相关的子窗口
+                def enum_child_windows(hwnd, result_list):
+                    def callback(child_hwnd, param):
+                        class_name = win32gui.GetClassName(child_hwnd)
+                        # 查找编辑框类型的窗口
+                        if any(edit_class in class_name.lower() for edit_class in ['edit', 'richedit', 'textbox']):
+                            rect = win32gui.GetWindowRect(child_hwnd)
+                            if rect[2] > rect[0] and rect[3] > rect[1]:  # 确保窗口有有效尺寸
+                                result_list.append((child_hwnd, rect))
+                        return True
+                    
+                    win32gui.EnumChildWindows(hwnd, callback, None)
+                    return result_list
+                
+                edit_windows = []
+                enum_child_windows(focus_hwnd, edit_windows)
+                
+                # 如果找到编辑框，使用其位置作为近似光标位置
+                if edit_windows:
+                    # 选择第一个编辑框
+                    _, rect = edit_windows[0]
+                    # 返回编辑框内部左侧位置作为光标位置
+                    return (rect[0] + 10, rect[1] + 10)
+                    
+        except Exception:
+            pass
+            
+        # 如果所有方法都失败，返回鼠标位置
+        return self.get_cursor_position()
+    
     def show_window(self):
         """
         在光标位置显示窗口
@@ -274,8 +399,8 @@ class ModernClipboardApp:
                 pass  # 静默处理焦点窗口保存错误
                 self.previous_focus_hwnd = None
             
-            # 获取光标位置
-            cursor_x, cursor_y = self.get_cursor_position()
+            # 获取输入框光标位置（如果没有输入框焦点则使用鼠标位置）
+            caret_x, caret_y = self.get_caret_position()
             # 获取屏幕尺寸
             screen_width = win32api.GetSystemMetrics(win32con.SM_CXSCREEN)
             screen_height = win32api.GetSystemMetrics(win32con.SM_CYSCREEN)
@@ -284,20 +409,27 @@ class ModernClipboardApp:
             window_width = 350
             window_height = 450
             
-            # 调整X坐标
-            if cursor_x + window_width > screen_width:
+            # 以光标为原点，窗口显示在第一象限（右上方）
+            # X坐标：光标右侧，留出一点间距
+            x = caret_x + 10
+            # Y坐标：光标上方，留出一点间距
+            y = caret_y - window_height - 10
+            
+            # 确保窗口不超出屏幕右边界
+            if x + window_width > screen_width:
                 x = screen_width - window_width - 10
-            else:
-                x = cursor_x
                 
-            # 调整Y坐标
-            if cursor_y + window_height > screen_height:
-                y = cursor_y - window_height - 10
-            else:
-                y = cursor_y + 10
-                
-            x = max(0, x)
-            y = max(0, y)
+            # 确保窗口不超出屏幕上边界
+            if y < 10:
+                # 如果上方空间不够，显示在光标下方
+                y = caret_y + 20
+                # 如果下方也不够，则显示在屏幕底部
+                if y + window_height > screen_height:
+                    y = screen_height - window_height - 10
+            
+            # 确保坐标不为负数
+            x = max(10, x)
+            y = max(10, y)
             
             win32gui.ShowWindow(self.window_hwnd, win32con.SW_SHOWNOACTIVATE)
             

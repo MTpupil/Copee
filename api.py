@@ -437,6 +437,11 @@ class ClipboardAPI:
         """
         keyword_lower = keyword.lower()
         
+        # 首先检查备注内容
+        note = item.get('note', '')
+        if note and keyword_lower in note.lower():
+            return True
+        
         if item['type'] == 'text':
             # 文本项目：搜索实际内容
             return keyword_lower in item['content'].lower()
@@ -460,6 +465,11 @@ class ClipboardAPI:
         Returns:
             bool: 是否匹配
         """
+        # 首先检查备注内容
+        note = item.get('note', '')
+        if note and pattern.search(note):
+            return True
+        
         if item['type'] == 'text':
             # 文本项目：在实际内容中搜索
             return bool(pattern.search(item['content']))
@@ -613,4 +623,37 @@ class ClipboardAPI:
             return json.dumps({
                 'success': False,
                 'message': f'保存设置失败: {str(e)}'
+            }, ensure_ascii=False)
+    
+    def update_item_note(self, index: int, note: str) -> str:
+        """
+        更新剪贴板项目的备注
+        
+        Args:
+            index: 项目索引
+            note: 备注内容
+        
+        Returns:
+            str: JSON格式的操作结果
+        """
+        try:
+            if 0 <= index < len(self.clipboard_manager.items):
+                # 更新备注
+                self.clipboard_manager.items[index].note = note
+                # 保存数据
+                self.clipboard_manager._save_data()
+                
+                return json.dumps({
+                    'success': True,
+                    'message': '备注更新成功'
+                }, ensure_ascii=False)
+            else:
+                return json.dumps({
+                    'success': False,
+                    'message': '项目索引无效'
+                }, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({
+                'success': False,
+                'message': f'更新备注失败: {str(e)}'
             }, ensure_ascii=False)

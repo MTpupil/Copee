@@ -21,7 +21,7 @@ class ClipboardItem:
     剪贴板项目类
     """
     
-    def __init__(self, content: str, item_type: str, timestamp: datetime = None, favorite: bool = False):
+    def __init__(self, content: str, item_type: str, timestamp: datetime = None, favorite: bool = False, note: str = ""):
         """
         初始化剪贴板项目
         
@@ -30,11 +30,13 @@ class ClipboardItem:
             item_type: 类型 (text, image, file)
             timestamp: 时间戳
             favorite: 是否收藏
+            note: 备注信息
         """
         self.content = content
         self.item_type = item_type
         self.timestamp = timestamp or datetime.now()
         self.favorite = favorite
+        self.note = note  # 添加备注字段
         self.hash = self._generate_hash()
         
     def _generate_hash(self) -> str:
@@ -60,7 +62,8 @@ class ClipboardItem:
             'timestamp': self.timestamp.isoformat(),
             'hash': self.hash,
             'preview': self._get_preview(),
-            'favorite': self.favorite
+            'favorite': self.favorite,
+            'note': self.note  # 添加备注字段到字典
         }
         
     def _get_preview(self) -> str:
@@ -158,11 +161,14 @@ class ClipboardManager:
                     for item_data in data:
                         # 兼容旧版本数据, 如果没有favorite字段则默认为False
                         favorite = item_data.get('favorite', False)
+                        # 兼容旧版本数据, 如果没有note字段则默认为空字符串
+                        note = item_data.get('note', '')
                         item = ClipboardItem(
                             content=item_data['content'],
                             item_type=item_data['type'],
                             timestamp=datetime.fromisoformat(item_data['timestamp']),
-                            favorite=favorite
+                            favorite=favorite,
+                            note=note
                         )
                         self.items.append(item)
             else:
