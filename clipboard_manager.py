@@ -358,44 +358,6 @@ class ClipboardManager:
         timer_thread = threading.Thread(target=timer_check, daemon=True)
         timer_thread.start()
     
-    def _check_time_based_auto_delete(self):
-        """
-        检查是否需要按时间自动删除
-        在新增记录时调用，提供更及时的清理
-        为了避免频繁检查，使用简化的检查逻辑
-        """
-        try:
-            # 获取当前设置
-            settings = self.get_settings()
-            auto_delete_settings = settings.get('autoDelete', {})
-            
-            # 只有启用了按时间删除才进行检查
-            if (auto_delete_settings.get('enabled', False) and 
-                auto_delete_settings.get('byTime', False)):
-                
-                days = auto_delete_settings.get('days', 7)
-                cutoff_time = datetime.now() - timedelta(days=days)
-                
-                # 简化检查：只检查列表末尾的几个项目
-                # 因为新项目总是添加到前面，过期的项目通常在后面
-                items_to_delete = []
-                check_count = min(10, len(self.items))  # 只检查最后10个项目
-                
-                for i in range(len(self.items) - check_count, len(self.items)):
-                    if i >= 0 and i < len(self.items):
-                        item = self.items[i]
-                        # 收藏记录不删除
-                        if not item.favorite and item.timestamp < cutoff_time:
-                            items_to_delete.append(i)
-                
-                # 执行删除（从后往前删除，避免索引变化）
-                for index in sorted(items_to_delete, reverse=True):
-                    self.delete_item(index)
-                    
-        except Exception as e:
-            # 静默处理检查错误
-            pass
-    
     def _apply_auto_delete_settings(self, auto_delete_settings: Dict[str, Any]):
         """
         应用自动删除设置

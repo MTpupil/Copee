@@ -770,9 +770,6 @@ class ModernClipboardUI {
      * 切换搜索模式
      */
     toggleSearchMode() {
-        // 隐藏之前的正则错误提示
-        this.hideRegexError();
-        
         // 在普通搜索和正则搜索之间切换
         if (this.searchType === 'normal') {
             this.searchType = 'regex';

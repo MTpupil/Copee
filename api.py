@@ -69,17 +69,9 @@ class ClipboardAPI:
             # 复制内容到剪贴板
             success = self.clipboard_manager.copy_item_to_clipboard(index)
             if not success:
-                # 获取项目信息用于错误诊断
-                items = self.clipboard_manager.get_items()
-                item_info = "未知项目"
-                if 0 <= index < len(items):
-                    item = items[index]
-                    content_preview = item.get('content', '')[:50] + ('...' if len(item.get('content', '')) > 50 else '')
-                    item_info = f"类型: {item.get('type', 'unknown')}, 内容预览: {content_preview}"
-                
                 return json.dumps({
                     'success': False,
-                    'message': f'复制失败 - {item_info}'
+                    'message': '复制失败'
                 }, ensure_ascii=False)
             
             # 隐藏窗口但不改变焦点

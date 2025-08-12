@@ -222,21 +222,6 @@ body {
     background: rgba(103, 126, 234, 0.2);
 }
 
-/* 正则表达式错误提示样式 */
-.regex-error {
-    color: #e74c3c;
-    font-size: 12px;
-    margin-top: 4px;
-    padding: 0 8px;
-    line-height: 1.4;
-    animation: fadeIn 0.2s ease-in;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-2px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
 /* 移除了高级搜索选项样式，改为简化的搜索模式切换 */
 
 /* 主内容区域样式移除，直接使用剪贴板列表 */
